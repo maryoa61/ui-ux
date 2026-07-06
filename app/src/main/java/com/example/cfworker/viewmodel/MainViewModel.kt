@@ -1,12 +1,14 @@
 package com.example.cfworker.viewmodel
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cfworker.data.ConfigDataClass
 import com.example.cfworker.data.DataStoreManager
 import com.example.cfworker.repository.CloudflareRepository
+import com.example.cfworker.repository.CloudflareRepositoryImpl
 import com.example.cfworker.service.V2RayVpnService
 import com.example.cfworker.utils.WorkerCodeGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,10 +27,10 @@ sealed class DeployState {
     data class Error(val message: String) : DeployState()
 }
 
-class MainViewModel(
-    private val dataStoreManager: DataStoreManager,
-    private val cloudflareRepository: CloudflareRepository
-) : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val dataStoreManager = DataStoreManager(application)
+    private val cloudflareRepository: CloudflareRepository = CloudflareRepositoryImpl()
 
     private val _vpnState = MutableStateFlow(VpnState.DISCONNECTED)
     val vpnState: StateFlow<VpnState> = _vpnState.asStateFlow()

@@ -337,13 +337,15 @@ fun DeployWorkerTab(
     description: 'مدیریت وضعیت برنامه (StateFlow)، هماهنگی با Repository کلودفلر، مدیریت ذخیره‌سازی با DataStore و شروع/پایان سرویس VPN.',
     code: `package com.example.cfworker.viewmodel
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cfworker.data.ConfigDataClass
 import com.example.cfworker.data.DataStoreManager
 import com.example.cfworker.repository.CloudflareRepository
+import com.example.cfworker.repository.CloudflareRepositoryImpl
 import com.example.cfworker.service.V2RayVpnService
 import com.example.cfworker.utils.WorkerCodeGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -362,10 +364,10 @@ sealed class DeployState {
     data class Error(val message: String) : DeployState()
 }
 
-class MainViewModel(
-    private val dataStoreManager: DataStoreManager,
-    private val cloudflareRepository: CloudflareRepository
-) : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val dataStoreManager = DataStoreManager(application)
+    private val cloudflareRepository: CloudflareRepository = CloudflareRepositoryImpl()
 
     private val _vpnState = MutableStateFlow(VpnState.DISCONNECTED)
     val vpnState: StateFlow<VpnState> = _vpnState.asStateFlow()
@@ -1056,7 +1058,7 @@ dependencies {
     description: 'رشته‌های استاندارد اندروید شامل نام برنامه.',
     code: `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CF Worker VPN</string>
+    <string name="app_name">CFVPN</string>
 </resources>
 `
   },
@@ -1087,8 +1089,11 @@ dependencies {
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#1E293B"
+        android:fillColor="#0D2448"
         android:pathData="M0,0h108v108h-108z"/>
+    <path
+        android:fillColor="#153B75"
+        android:pathData="M54,18 C74,18 90,34 90,54 C90,74 74,90 54,90 C34,90 18,74 18,54 C18,34 34,18 54,18 Z"/>
 </vector>
 `
   },
@@ -1097,19 +1102,65 @@ dependencies {
     path: 'app/src/main/res/drawable/ic_launcher_foreground.xml',
     category: 'gradle',
     title: 'res/drawable/ic_launcher_foreground.xml',
-    description: 'طرح رویی آیکون برنامه (سپر محافظ VPN).',
+    description: 'طرح رویی آیکون برنامه (سپر محافظ CFVPN با ابر و موج).',
     code: `<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Outer Cyan Glowing Shield Outline -->
     <path
-        android:fillColor="#38BDF8"
-        android:pathData="M54,26 C38.5,26 26,38.5 26,54 C26,69.5 38.5,82 54,82 C69.5,82 82,69.5 82,54 C82,38.5 69.5,26 54,26 Z M54,74 C43,74 34,65 34,54 C34,43 43,34 54,34 C65,34 74,43 74,54 C74,65 65,74 54,74 Z"/>
+        android:fillColor="#22D3EE"
+        android:pathData="M 54,20 C 38,25 26,26 25,28 L 25,52 C 25,72 40,84 54,89 C 68,84 83,72 83,52 L 83,28 C 82,26 70,25 54,20 Z"/>
+    <!-- Inner Deep Royal Blue Shield Body -->
     <path
-        android:fillColor="#38BDF8"
-        android:pathData="M54,42 L42,54 L50,54 L50,66 L58,66 L58,54 L66,54 Z"/>
+        android:fillColor="#1E3A8A"
+        android:pathData="M 54,23 C 40,28 28,28 28,30 L 28,52 C 28,69 41,80 54,85 C 67,80 80,69 80,52 L 80,30 C 80,28 68,28 54,23 Z"/>
+    <!-- Inner Darker Blue Rim -->
+    <path
+        android:fillColor="#172554"
+        android:pathData="M 54,26 C 42,30 31,30 31,32 L 31,52 C 31,67 42,76 54,81 C 66,76 77,67 77,52 L 77,32 C 77,30 66,30 54,26 Z"/>
+    <!-- Cloudflare Orange Cloud Base -->
+    <path
+        android:fillColor="#EA580C"
+        android:pathData="M 44,52 C 36,52 32,46.5 32,41 C 32,35.5 36.5,31.5 41.5,31 C 44,26 49,23 55,23 C 61.5,23 66.5,27.5 67.5,33 C 72,34 75,38 75,42.5 C 75,48 70.5,52 65.5,52 Z"/>
+    <!-- Cloudflare Orange Cloud Highlight -->
+    <path
+        android:fillColor="#FB923C"
+        android:pathData="M 55,25 C 49.5,25 45,28 42.5,32.5 C 38,33 34.5,36.5 34.5,41 C 34.5,45.5 38,49.5 44,49.5 L 65,49.5 C 69,49.5 72.5,46 72.5,42 C 72.5,38 69.5,34.5 65.5,34.2 C 64.5,29 60,25 55,25 Z"/>
+    <!-- White Wave Primary Surge -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 32,48 C 38,42 47,43 55,49 C 61,54 67,51 71,45 C 73.5,50 69,57 61,57 C 53,57 45,51 37,52 C 34.5,52.5 33,50.5 32,48 Z"/>
+    <!-- White Wave Secondary Swoosh -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M 35,53 C 43,50 50,54 57,59 C 63,62 69,58 73,53 C 74,56.5 68,62 60,62 C 50,62 43,56 35,53 Z"/>
+    <!-- Ribbon Banner Outer Band -->
+    <path
+        android:fillColor="#1E40AF"
+        android:pathData="M 30,60 L 78,60 L 78,73 L 54,77 L 30,73 Z"/>
+    <!-- Ribbon Banner Inner Blue Band -->
+    <path
+        android:fillColor="#1D4ED8"
+        android:pathData="M 31,61 L 77,61 L 77,72 L 54,75.5 L 31,72 Z"/>
+    <!-- Letters C F V P N in White -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 39,63.5 L 35.5,63.5 L 35.5,69.5 L 39,69.5 L 39,68 L 37,68 L 37,65 L 39,65 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 41,63.5 L 45,63.5 L 45,65 L 42.5,65 L 42.5,66 L 44.5,66 L 44.5,67.3 L 42.5,67.3 L 42.5,69.5 L 41,69.5 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 47,63.5 L 48.5,63.5 L 49.5,67.5 L 50.5,63.5 L 52,63.5 L 50.2,69.5 L 48.8,69.5 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 54,63.5 L 57.5,63.5 C 58.8,63.5 58.8,66.5 57.5,66.5 L 55.5,66.5 L 55.5,69.5 L 54,69.5 Z M 55.5,64.8 L 55.5,65.3 L 57.2,65.3 C 57.6,65.3 57.6,64.8 57.2,64.8 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 60.5,63.5 L 62,63.5 L 64,67.5 L 64,63.5 L 65.5,63.5 L 65.5,69.5 L 64,69.5 L 62,65.5 L 62,69.5 L 60.5,69.5 Z"/>
 </vector>
 `
   },
@@ -1217,9 +1268,78 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CFWorkerVPN-Debug-APK
+        name: CFVPN-Debug-APK
         path: app/build/outputs/apk/debug/*.apk
         retention-days: 14
+`
+  },
+  {
+    filename: 'README.txt',
+    path: 'app/src/main/assets/README.txt',
+    category: 'gradle',
+    title: 'assets/README.txt',
+    description: 'راهنمای پوشه باینری هسته Xray در assets اندروید.',
+    code: `برای عملکرد کامل تونلینگ در محیط پروداکشن، باینری معماری پردازنده (مثلا xray برای arm64-v8a) را در این پوشه قرار دهید.
+`
+  },
+  {
+    filename: 'README.md',
+    path: 'README.md',
+    category: 'gradle',
+    title: 'README.md (راهنمای پروژه و همکاری Google AI Studio)',
+    description: 'مستندات کامل پروژه CFVPN، ساختار معماری کاتلین و جزییات همکاری هوش مصنوعی Google AI Studio.',
+    code: `# CFVPN - Android Jetpack Compose VLESS Client & Cloudflare Worker Deployer
+
+این پروژه یک اپلیکیشن پیشرفته و کاملا نیتیو اندروید است که با زبان **Kotlin**، رابط کاربری مدرن **Jetpack Compose (Material 3)** و معماری استاندارد **Clean Architecture** توسعه یافته است.
+
+---
+
+## 🌟 همکاری و طراحی توسط Google AI Studio (Gemini AI & Antigravity Agent)
+
+این پروژه از صفر تا صد با همکاری، معماری فنی و کدنویسی پیشرفته هوش مصنوعی **Google AI Studio** پیاده‌سازی و بهینه‌سازی شده است:
+
+1. **معماری نیتیو کاتلین (Clean & Reactive Architecture):**
+   توسط انجین هوش مصنوعی Google AI Studio، ساختار لایه‌بندی دقیق شامل \`StateFlow\` در \`MainViewModel\`، مدیریت ذخیره‌سازی محلی امن با \`DataStore\` و مدیریت لایه شبکه توسط \`CloudflareRepository\` طراحی شده است.
+
+2. **تولید و استقرار خودکار اسکریپت Cloudflare Workers:**
+   تیم معماری هوش مصنوعی، قابلیت استثنایی دیپلوی مستقیم از درون گوشی اندروید به Cloudflare API v4 را خلق کرده است. کاربر تنها با وارد کردن Account ID و API Token، اسکریپت اختصاصی VLESS over WebSocket را روی زیرساخت سرورلس کلودفلر مستقر می‌کند.
+
+3. **رابط کاربری و تجربه کاربری (UI/UX - Jetpack Compose):**
+   طراحی تم تاریک شبانه (Dark Theme)، نمودارهای زنده ترافیک شبکه (Up/Down)، ترمینال لاگ لحظه‌ای اتصالات و پنل شبیه‌ساز کاملاً توسط مدل‌های پیشرفته هوش مصنوعی بهینه‌سازی شده است.
+
+4. **طراحی آیکون برداری اختصاصی (Vector Shield Asset):**
+   آیکون اختصاصی **CFVPN** با سپر محافظ چندلایه فیروزه‌ای و لاجوردی همراه با نماد ابری نارنجی Cloudflare به صورت کدهای خالص برداری اندروید (\`VectorDrawable\`) و بدون افت کیفیت خلق گردید.
+
+5. **خط لوله ساخت خودکار در ابری (GitHub Actions CI/CD):**
+   جهت بی‌نیاز کردن کاربران از بیلد دستی، ورک‌فلو خودکار \`.github/workflows/android.yml\` تنظیم شد تا به محض پوش کردن پروژه در گیت‌هاب، فایل **APK** به صورت خودکار تولید و آماده دانلود شود.
+
+---
+
+## 📁 ساختار فایل‌های پروژه
+
+### 🛠 پیکربندی و بیلد (Gradle & CI/CD)
+- \`build.gradle.kts\`: اسکریپت بیلد ریشه پروژه
+- \`settings.gradle.kts\`: معرفی ماژول app و مخازن استاندارد گوگل
+- \`gradle.properties\`: تنظیمات کش و بهینه‌سازی JVM گریدل
+- \`gradle/libs.versions.toml\`: مدیریت متمرکز نسخه‌ها و کتابخانه‌ها (Version Catalog)
+- \`app/build.gradle.kts\`: وابستگی‌های کاتلین، Compose، Coroutines و OkHttp
+- \`.github/workflows/android.yml\`: بیلد خودکار APK در سرورهای گیت‌هاب
+
+### 💻 سورس کد کاتلین (Kotlin Source Code)
+- \`app/src/main/java/com/example/cfworker/ui/MainActivity.kt\`: رابط کاربری اصلی با Jetpack Compose
+- \`app/src/main/java/com/example/cfworker/viewmodel/MainViewModel.kt\`: مدیریت استیت اتصالات و دیپلوی
+- \`app/src/main/java/com/example/cfworker/service/V2RayVpnService.kt\`: مدیریت رابط TUN و هسته Xray-core
+- \`app/src/main/java/com/example/cfworker/repository/CloudflareRepository.kt\`: ارتباط با Cloudflare REST API v4
+- \`app/src/main/java/com/example/cfworker/data/ConfigDataClass.kt\`: مدل‌های داده سرور و کانفیگ VLESS
+- \`app/src/main/java/com/example/cfworker/utils/XrayConfigGenerator.kt\`: تولید فایل کانفیگ JSON برای هسته Xray
+
+---
+
+## 🚀 راهنمای ساخت و اجرا در Android Studio
+1. پروژه را در **Android Studio (Ladybug یا جدیدتر)** باز کنید.
+2. گریدل به طور خودکار وابستگی‌ها را سینک می‌کند.
+3. فایل باینری معماری پردازنده گوشی خود (مثلا \`xray\` برای arm64-v8a) را در پوشه \`app/src/main/assets/\` قرار دهید.
+4. روی دکمه **Run** کلیک کنید یا از منوی Build گزینه **Build APK** را انتخاب نمایید.
 `
   }
 ];

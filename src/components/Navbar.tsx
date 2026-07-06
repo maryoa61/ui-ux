@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { Smartphone, Code2, Bot, Download, ShieldCheck, Sparkles } from 'lucide-react';
+import { Smartphone, Code2, Bot, Download, Sparkles } from 'lucide-react';
+import { CFVpnLogo } from './CFVpnLogo';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -13,8 +14,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, vpnStat
     <header className="bg-[#0D1117] border-b border-slate-800 sticky top-0 z-50 text-[#E2E8F0]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-[0_0_20px_rgba(79,70,229,0.4)]">
-            <ShieldCheck className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.3)] transition-transform hover:scale-105">
+            <CFVpnLogo size={42} />
           </div>
           <div>
             <div className="flex items-center gap-2">

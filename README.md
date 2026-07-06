@@ -1,20 +1,31 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# CFVPN - Android Jetpack Compose VLESS Client & Cloudflare Worker Deployer Studio
 
-# Run and deploy your AI Studio app
+این پروژه یک پلتفرم کامل و استودیو توسعه برای اپلیکیشن نیتیو اندروید **CFVPN** است که با زبان **Kotlin**، رابط کاربری مدرن **Jetpack Compose (Material 3)** و معماری استاندارد **Clean Architecture** طراحی و با شبیه‌ساز وب تعاملی ادغام شده است.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/967bcf62-c252-45a6-ad5a-5598f7d4f82d
+## 🌟 همکاری و طراحی توسط Google AI Studio (Gemini AI & Antigravity Agent)
 
-## Run Locally
+این پروژه از صفر تا صد با همکاری، معماری فنی و کدنویسی پیشرفته هوش مصنوعی **Google AI Studio** پیاده‌سازی و بهینه‌سازی شده است:
 
-**Prerequisites:**  Node.js
+1. **معماری نیتیو کاتلین (Clean & Reactive Architecture):**
+   توسط انجین هوش مصنوعی Google AI Studio، ساختار لایه‌بندی دقیق شامل `StateFlow` در `MainViewModel`، مدیریت ذخیره‌سازی محلی امن با `DataStore` و مدیریت لایه شبکه توسط `CloudflareRepository` طراحی شده است.
 
+2. **تولید و استقرار خودکار اسکریپت Cloudflare Workers:**
+   تیم معماری هوش مصنوعی، قابلیت استثنایی دیپلوی مستقیم از درون گوشی اندروید به Cloudflare API v4 را خلق کرده است. کاربر تنها با وارد کردن Account ID و API Token، اسکریپت اختصاصی VLESS over WebSocket را روی زیرساخت سرورلس کلودفلر مستقر می‌کند.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. **رابط کاربری و تجربه کاربری (UI/UX - Jetpack Compose):**
+   طراحی تم تاریک شبانه (Dark Theme)، نمودارهای زنده ترافیک شبکه (Up/Down)، ترمینال لاگ لحظه‌ای اتصالات و پنل شبیه‌ساز کاملاً توسط مدل‌های پیشرفته هوش مصنوعی بهینه‌سازی شده است.
+
+4. **طراحی آیکون برداری اختصاصی (Vector Shield Asset):**
+   آیکون اختصاصی **CFVPN** با سپر محافظ چندلایه فیروزه‌ای و لاجوردی همراه با نماد ابری نارنجی Cloudflare به صورت کدهای خالص برداری اندروید (`VectorDrawable`) و بدون افت کیفیت خلق گردید.
+
+5. **خط لوله ساخت خودکار در ابری (GitHub Actions CI/CD):**
+   جهت بی‌نیاز کردن کاربران از بیلد دستی، ورک‌فلو خودکار `.github/workflows/android.yml` تنظیم شد تا به محض پوش کردن پروژه در گیت‌هاب، فایل **APK** به صورت خودکار تولید و آماده دانلود شود.
+
+---
+
+## 🚀 قابلیت‌های کلیدی پلتفرم وب (Web Studio)
+- **شبیه‌ساز زنده (Live Simulator):** تست رفتار رابط کاربری اندروید، اتصال به VLESS و ارسال درخواست‌های دیپلوی کلودفلر.
+- **مرورگر سورس کد پروژه کاتلین:** مشاهده و بررسی کامل کدهای کاتلین، فایل‌های گریدل، مانیفست و منابع برداری آیکون‌ها.
+- **خروجی مستقیم پروژه اندروید استودیو (ZIP Exporter):** دانلود کامل پروژه اندروید استودیو به همراه تمامی تنظیمات بیلد آماده کامپایل و اجرای مستقیم روی دیوایس واقعی.

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VpnStatus, VpnConfig, CloudflareConfig, NetworkStats } from '../types';
 import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal } from 'lucide-react';
 import { KOTLIN_CODEBASE } from '../data/kotlinCodebase';
+import { CFVpnLogo } from './CFVpnLogo';
 
 interface AndroidSimulatorProps {
   vpnStatus: VpnStatus;
@@ -188,7 +189,10 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
 
           {/* Top Bar */}
           <div className="px-5 py-3.5 bg-[#161B22] flex justify-between items-center border-b border-slate-800">
-            <h2 className="font-bold text-sm sm:text-base text-white">CF Worker VPN (Jetpack Compose)</h2>
+            <div className="flex items-center gap-2.5">
+              <CFVpnLogo size={28} />
+              <h2 className="font-bold text-sm sm:text-base text-white">CF Worker VPN</h2>
+            </div>
             <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-full font-mono font-medium border border-indigo-500/30">Xray-core</span>
           </div>
 

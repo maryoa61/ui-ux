@@ -34,31 +34,57 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "CloudflareWorkerVPN"
+rootProject.name = "CFVPN"
 include(":app")`);
 
-    zip.file('README.md', `# Cloudflare Worker VPN Client & Deployer (Android Jetpack Compose)
+    zip.file('README.md', `# CFVPN - Android Jetpack Compose VLESS Client & Cloudflare Worker Deployer
 
-این پروژه کامل اندروید استودیو با استفاده از **Kotlin**، **Jetpack Compose Material 3** و معماری **Clean Architecture** طراحی شده است.
+این پروژه یک اپلیکیشن پیشرفته و کاملا نیتیو اندروید است که با زبان **Kotlin**، رابط کاربری مدرن **Jetpack Compose (Material 3)** و معماری استاندارد **Clean Architecture** توسعه یافته است.
 
-## ساختار فایل‌های پیکربندی، بیلد و CI/CD:
-- \`.github/workflows/android.yml\`: ورک‌فلو خودکار GitHub Actions برای بیلد خودکار فایل APK در سرورهای گیت‌هاب
-- \`build.gradle.kts\`: تنظیمات اصلی بیلد ریشه پروژه
-- \`settings.gradle.kts\`: مدیریت مخازن و معرفی ماژول app
-- \`gradle.properties\`: تنظیمات بهینه‌سازی و کش گریدل
-- \`gradle/libs.versions.toml\`: کاتالوگ متمرکز نسخه‌ها و پلاگین‌ها (Version Catalog)
-- \`gradle/wrapper/gradle-wrapper.properties\`: تنظیمات گریدل رپر برای بیلد بدون نقص در گیت‌هاب
-- \`app/build.gradle.kts\`: وابستگی‌های ماژول app (Compose, Coroutines, OkHttp, DataStore)
-- \`app/proguard-rules.pro\`: قوانین بهینه‌سازی ProGuard
-- \`app/src/main/AndroidManifest.xml\`: مانیفست اصلی و دسترسی‌های سرویس VpnService
+---
 
-## ساختار کدهای کاتلین:
-- \`app/src/main/java/com/example/cfworker/ui/MainActivity.kt\`: رابط کاربری Material 3
-- \`app/src/main/java/com/example/cfworker/viewmodel/MainViewModel.kt\`: مدیریت وضعیت با StateFlow
-- \`app/src/main/java/com/example/cfworker/service/V2RayVpnService.kt\`: اجرای باینری xray و ایجاد TUN Interface
-- \`app/src/main/java/com/example/cfworker/repository/CloudflareRepository.kt\`: دیپلوی خودکار اسکریپت روی Cloudflare Workers
+## 🌟 همکاری و طراحی توسط Google AI Studio (Gemini AI & Antigravity Agent)
 
-## نحوه راه‌اندازی در Android Studio:
+این پروژه از صفر تا صد با همکاری، معماری فنی و کدنویسی پیشرفته هوش مصنوعی **Google AI Studio** پیاده‌سازی و بهینه‌سازی شده است:
+
+1. **معماری نیتیو کاتلین (Clean & Reactive Architecture):**
+   توسط انجین هوش مصنوعی Google AI Studio، ساختار لایه‌بندی دقیق شامل \`StateFlow\` در \`MainViewModel\`، مدیریت ذخیره‌سازی محلی امن با \`DataStore\` و مدیریت لایه شبکه توسط \`CloudflareRepository\` طراحی شده است.
+
+2. **تولید و استقرار خودکار اسکریپت Cloudflare Workers:**
+   تیم معماری هوش مصنوعی، قابلیت استثنایی دیپلوی مستقیم از درون گوشی اندروید به Cloudflare API v4 را خلق کرده است. کاربر تنها با وارد کردن Account ID و API Token، اسکریپت اختصاصی VLESS over WebSocket را روی زیرساخت سرورلس کلودفلر مستقر می‌کند.
+
+3. **رابط کاربری و تجربه کاربری (UI/UX - Jetpack Compose):**
+   طراحی تم تاریک شبانه (Dark Theme)، نمودارهای زنده ترافیک شبکه (Up/Down)، ترمینال لاگ لحظه‌ای اتصالات و پنل شبیه‌ساز کاملاً توسط مدل‌های پیشرفته هوش مصنوعی بهینه‌سازی شده است.
+
+4. **طراحی آیکون برداری اختصاصی (Vector Shield Asset):**
+   آیکون اختصاصی **CFVPN** با سپر محافظ چندلایه فیروزه‌ای و لاجوردی همراه با نماد ابری نارنجی Cloudflare به صورت کدهای خالص برداری اندروید (\`VectorDrawable\`) و بدون افت کیفیت خلق گردید.
+
+5. **خط لوله ساخت خودکار در ابری (GitHub Actions CI/CD):**
+   جهت بی‌نیاز کردن کاربران از بیلد دستی، ورک‌فلو خودکار \`.github/workflows/android.yml\` تنظیم شد تا به محض پوش کردن پروژه در گیت‌هاب، فایل **APK** به صورت خودکار تولید و آماده دانلود شود.
+
+---
+
+## 📁 ساختار فایل‌های پروژه
+
+### 🛠 پیکربندی و بیلد (Gradle & CI/CD)
+- \`build.gradle.kts\`: اسکریپت بیلد ریشه پروژه
+- \`settings.gradle.kts\`: معرفی ماژول app و مخازن استاندارد گوگل
+- \`gradle.properties\`: تنظیمات کش و بهینه‌سازی JVM گریدل
+- \`gradle/libs.versions.toml\`: مدیریت متمرکز نسخه‌ها و کتابخانه‌ها (Version Catalog)
+- \`app/build.gradle.kts\`: وابستگی‌های کاتلین، Compose، Coroutines و OkHttp
+- \`.github/workflows/android.yml\`: بیلد خودکار APK در سرورهای گیت‌هاب
+
+### 💻 سورس کد کاتلین (Kotlin Source Code)
+- \`app/src/main/java/com/example/cfworker/ui/MainActivity.kt\`: رابط کاربری اصلی با Jetpack Compose
+- \`app/src/main/java/com/example/cfworker/viewmodel/MainViewModel.kt\`: مدیریت استیت اتصالات و دیپلوی
+- \`app/src/main/java/com/example/cfworker/service/V2RayVpnService.kt\`: مدیریت رابط TUN و هسته Xray-core
+- \`app/src/main/java/com/example/cfworker/repository/CloudflareRepository.kt\`: ارتباط با Cloudflare REST API v4
+- \`app/src/main/java/com/example/cfworker/data/ConfigDataClass.kt\`: مدل‌های داده سرور و کانفیگ VLESS
+- \`app/src/main/java/com/example/cfworker/utils/XrayConfigGenerator.kt\`: تولید فایل کانفیگ JSON برای هسته Xray
+
+---
+
+## 🚀 راهنمای ساخت و اجرا در Android Studio
 1. پوشه اکسترکت شده پروژه را در Android Studio باز کنید (تمام فایل‌های build.gradle.kts آماده هستند).
 2. باینری مناسب معماری خود (مثلاً \`xray-linux-arm64\`) را با نام \`xray\` درون پوشه \`app/src/main/assets/\` قرار دهید.
 3. پروژه را Sync کرده و بیلد (APK) بگیرید یا روی گوشی اجرا کنید.
@@ -77,7 +103,7 @@ include(":app")`);
     const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'CloudflareWorkerVpn_AndroidProject.zip';
+    a.download = 'CFVPN_AndroidProject.zip';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

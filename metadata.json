@@ -1,5 +1,5 @@
 {
-  "name": "Cloudflare Workers VPN Client & Deployer Studio",
+  "name": "CFVPN",
   "description": "Android Jetpack Compose VPN Client simulator & automated Cloudflare Worker deployment panel with complete Kotlin source code inspection and Gemini AI diagnostic assistant.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
