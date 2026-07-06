@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,10 +52,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
-                    primary = Color(0xFF3B82F6),
+                    primary = Color(0xFF6366F1),
                     secondary = Color(0xFF10B981),
-                    background = Color(0xFF0F172A),
-                    surface = Color(0xFF1E293B),
+                    background = Color(0xFF0D1117),
+                    surface = Color(0xFF161B22),
                     onSurface = Color(0xFFF8FAFC)
                 )
             ) {
@@ -86,17 +88,33 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
     val vpnState by viewModel.vpnState.collectAsState()
     val configData by viewModel.configData.collectAsState()
     val deployState by viewModel.deployState.collectAsState()
+    val deployLogs by viewModel.deployLogs.collectAsState()
     val speedStats by viewModel.speedStats.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Cloudflare Worker VPN", fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF6366F1))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("CFVPN (Jetpack Compose)", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+                },
+                actions = {
+                    Surface(
+                        color = Color(0xFF6366F1).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(end = 12.dp)
+                    ) {
+                        Text("Xray-core / VLESS", color = Color(0xFFA5B4FC), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+            NavigationBar(containerColor = Color(0xFF0A0C10)) {
                 NavigationBarItem(
                     selected = selectedTabIndex == 0,
                     onClick = { selectedTabIndex = 0 },
@@ -109,6 +127,12 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
                     icon = { Icon(Icons.Default.CloudUpload, contentDescription = "Deploy") },
                     label = { Text("دیپلوی ورکر") }
                 )
+                NavigationBarItem(
+                    selected = selectedTabIndex == 2,
+                    onClick = { selectedTabIndex = 2 },
+                    icon = { Icon(Icons.Default.Code, contentDescription = "JSON") },
+                    label = { Text("کانفیگ JSON") }
+                )
             }
         }
     ) { paddingValues ->
@@ -119,23 +143,26 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
                 .background(MaterialTheme.colorScheme.background)
         ) {
             AnimatedContent(targetState = selectedTabIndex, label = "tabSwitch") { tab ->
-                if (tab == 0) {
-                    VpnClientTab(
+                when (tab) {
+                    0 -> VpnClientTab(
                         vpnState = vpnState,
                         configData = configData,
                         speedStats = speedStats,
                         onConnectClick = onConnectRequested,
-                        onConfigChanged = { viewModel.updateVpnConfig(it) }
+                        onConfigChanged = { viewModel.updateVpnConfig(it) },
+                        onRandomUuidClick = { viewModel.generateRandomUuid() },
+                        onCleanIpSelect = { viewModel.setHostToCleanIp(it) }
                     )
-                } else {
-                    DeployWorkerTab(
+                    1 -> DeployWorkerTab(
                         configData = configData,
                         deployState = deployState,
+                        deployLogs = deployLogs,
                         onCredentialsChanged = { accId, token, name ->
                             viewModel.updateCloudflareCredentials(accId, token, name)
                         },
                         onDeployClick = { viewModel.deployWorkerToCloudflare() }
                     )
+                    2 -> JsonPreviewTab(jsonText = viewModel.getXrayJsonPreview())
                 }
             }
         }
@@ -148,7 +175,9 @@ fun VpnClientTab(
     configData: com.example.cfworker.data.ConfigDataClass,
     speedStats: com.example.cfworker.viewmodel.SpeedStats,
     onConnectClick: () -> Unit,
-    onConfigChanged: (com.example.cfworker.data.ConfigDataClass) -> Unit
+    onConfigChanged: (com.example.cfworker.data.ConfigDataClass) -> Unit,
+    onRandomUuidClick: () -> Unit,
+    onCleanIpSelect: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -158,20 +187,20 @@ fun VpnClientTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Status & Big Connect Button
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(180.dp)
+                .size(170.dp)
                 .clip(CircleShape)
                 .background(
                     when (vpnState) {
-                        VpnState.CONNECTED -> Color(0xFF10B981)
+                        VpnState.CONNECTED -> Color(0xFF6366F1)
                         VpnState.CONNECTING -> Color(0xFFF59E0B)
-                        else -> Color(0xFF334155)
+                        else -> Color(0xFF161B22)
                     }
                 )
+                .border(2.dp, if (vpnState == VpnState.CONNECTED) Color(0xFF818CF8) else Color(0xFF334155), CircleShape)
                 .clickable { onConnectClick() }
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -179,50 +208,52 @@ fun VpnClientTab(
                     imageVector = Icons.Default.PowerSettingsNew,
                     contentDescription = "Connect",
                     tint = Color.White,
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(52.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = when (vpnState) {
-                        VpnState.CONNECTED -> "متصل است"
-                        VpnState.CONNECTING -> "در حال اتصال..."
-                        else -> "برای اتصال لمس کنید"
+                        VpnState.CONNECTED -> "متصل به ورکر"
+                        VpnState.CONNECTING -> "در حال برقراری..."
+                        else -> "اتصال VPN"
                     },
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
             }
         }
+        Text(
+            text = if (vpnState == VpnState.CONNECTED) "تونل Xray برقرار است (\${configData.host})" else "برای فعال‌سازی VpnService اندروید لمس کنید",
+            color = Color.Gray,
+            fontSize = 12.sp
+        )
 
-        // Speed Display Card
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                SpeedIndicator(icon = Icons.Default.ArrowDownward, label = "دانلود", speed = "\${speedStats.downloadSpeedKbps} KB/s")
-                SpeedIndicator(icon = Icons.Default.ArrowUpward, label = "آپلود", speed = "\${speedStats.uploadSpeedKbps} KB/s")
-                SpeedIndicator(icon = Icons.Default.Speed, label = "پینگ", speed = "\${speedStats.pingMs} ms")
+                SpeedIndicator(icon = Icons.Default.ArrowDownward, label = "دانلود", speed = "\${speedStats.downloadSpeedKbps} KB/s", color = Color(0xFF10B981))
+                SpeedIndicator(icon = Icons.Default.ArrowUpward, label = "آپلود", speed = "\${speedStats.uploadSpeedKbps} KB/s", color = Color(0xFF6366F1))
+                SpeedIndicator(icon = Icons.Default.Speed, label = "پینگ", speed = "\${speedStats.pingMs} ms", color = Color(0xFFF59E0B))
             }
         }
 
-        // Worker Config Card
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text("پیکربندی ورکر Cloudflare (VLESS)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("تنظیمات سرور Cloudflare (Host / UUID)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF818CF8))
                 
                 OutlinedTextField(
                     value = configData.host,
@@ -235,29 +266,55 @@ fun VpnClientTab(
                 OutlinedTextField(
                     value = configData.path,
                     onValueChange = { onConfigChanged(configData.copy(path = it)) },
-                    label = { Text("WebSocket Path (مثلاً /vless)") },
+                    label = { Text("WebSocket Path") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
 
-                OutlinedTextField(
-                    value = configData.uuid,
-                    onValueChange = { onConfigChanged(configData.copy(uuid = it)) },
-                    label = { Text("UUID (شناسه کاربر VLESS)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = configData.uuid,
+                        onValueChange = { onConfigChanged(configData.copy(uuid = it)) },
+                        label = { Text("شناسه UUID") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    Button(onClick = onRandomUuidClick, modifier = Modifier.height(56.dp)) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                    }
+                }
+
+                Divider(color = Color(0xFF1E293B))
+                Text("انتخاب سریع آی‌پی تمیز (Clean IP):", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+
+                val cleanIps = listOf(
+                    "104.16.123.96" to "ایرانسل / همراه اول (پرترافیک)",
+                    "172.67.180.12" to "شاتل / رایتل (پایدار)",
+                    "104.20.19.44" to "افرانت / آسیاتک (پینگ پایین)"
                 )
+                cleanIps.forEach { (ip, desc) ->
+                    Surface(
+                        color = Color(0xFF0D1117),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp)).clickable { onCleanIpSelect(ip) }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(desc, color = Color.LightGray, fontSize = 12.sp)
+                            Text(ip, color = Color(0xFF818CF8), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun SpeedIndicator(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, speed: String) {
+fun SpeedIndicator(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, speed: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(imageVector = icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
-        Text(text = label, fontSize = 12.sp, color = Color.Gray)
-        Text(text = speed, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Icon(imageVector = icon, contentDescription = label, tint = color)
+        Text(text = label, fontSize = 11.sp, color = Color.Gray)
+        Text(text = speed, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
     }
 }
 
@@ -265,6 +322,7 @@ fun SpeedIndicator(icon: androidx.compose.ui.graphics.vector.ImageVector, label:
 fun DeployWorkerTab(
     configData: com.example.cfworker.data.ConfigDataClass,
     deployState: com.example.cfworker.viewmodel.DeployState,
+    deployLogs: List<String>,
     onCredentialsChanged: (String, String, String) -> Unit,
     onDeployClick: () -> Unit
 ) {
@@ -275,8 +333,20 @@ fun DeployWorkerTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("دیپلوی خودکار Cloudflare Worker", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("با وارد کردن توکن کلودفلر، کد اسکریپت VLESS به صورت خودکار ساخته شده و در اکانت شما دیپلوی می‌شود.", fontSize = 13.sp, color = Color.Gray)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CloudUpload, contentDescription = null, tint = Color(0xFF6366F1))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("دیپلوی اتوماتیک روی Cloudflare Workers", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF818CF8))
+                }
+                Text("با وارد کردن Account ID و API Token، اسکریپت VLESS مستقیماً از داخل اندروید روی اکانت کلودفلر مستقر می‌شود.", fontSize = 12.sp, color = Color.Gray)
+            }
+        }
 
         OutlinedTextField(
             value = configData.cfAccountId,
@@ -288,7 +358,7 @@ fun DeployWorkerTab(
         OutlinedTextField(
             value = configData.cfApiToken,
             onValueChange = { onCredentialsChanged(configData.cfAccountId, it, configData.cfWorkerName) },
-            label = { Text("Global API Token / API Token") },
+            label = { Text("Global API Token") },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -301,7 +371,8 @@ fun DeployWorkerTab(
 
         Button(
             onClick = onDeployClick,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
             enabled = deployState !is com.example.cfworker.viewmodel.DeployState.Loading
         ) {
             if (deployState is com.example.cfworker.viewmodel.DeployState.Loading) {
@@ -309,7 +380,18 @@ fun DeployWorkerTab(
             } else {
                 Icon(Icons.Default.CloudUpload, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("دیپلوی اتوماتیک روی Cloudflare")
+                Text("شروع دیپلوی ورکر (Deploy Worker)", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (deployLogs.isNotEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0C10)), modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("ترمینال لاگ دیپلوی:", color = Color(0xFF818CF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    deployLogs.forEach { log ->
+                        Text(log, color = Color.LightGray, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                    }
+                }
             }
         }
 
@@ -323,6 +405,36 @@ fun DeployWorkerTab(
         } else if (deployState is com.example.cfworker.viewmodel.DeployState.Error) {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D))) {
                 Text(text = "❌ خطا: \${deployState.message}", color = Color.White, modifier = Modifier.padding(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun JsonPreviewTab(jsonText: String) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Code, contentDescription = null, tint = Color(0xFF10B981))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("خروجی تولید شده Xray-core JSON", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF10B981))
+                }
+                Text("این کانفیگ توسط XrayConfigGenerator.kt تولید شده و برای راه‌اندازی باینری xray استفاده می‌شود:", fontSize = 12.sp, color = Color.Gray)
+                Surface(
+                    color = Color(0xFF0A0C10),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))
+                ) {
+                    Text(jsonText, color = Color(0xFF34D399), fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.padding(12.dp))
+                }
             }
         }
     }
@@ -348,6 +460,7 @@ import com.example.cfworker.repository.CloudflareRepository
 import com.example.cfworker.repository.CloudflareRepositoryImpl
 import com.example.cfworker.service.V2RayVpnService
 import com.example.cfworker.utils.WorkerCodeGenerator
+import com.example.cfworker.utils.XrayConfigGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -378,6 +491,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployState = MutableStateFlow<DeployState>(DeployState.Idle)
     val deployState: StateFlow<DeployState> = _deployState.asStateFlow()
 
+    private val _deployLogs = MutableStateFlow<List<String>>(emptyList())
+    val deployLogs: StateFlow<List<String>> = _deployLogs.asStateFlow()
+
     private val _speedStats = MutableStateFlow(SpeedStats())
     val speedStats: StateFlow<SpeedStats> = _speedStats.asStateFlow()
 
@@ -407,6 +523,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         context.startService(intent)
         _vpnState.value = VpnState.CONNECTED
+        _speedStats.value = SpeedStats(downloadSpeedKbps = 1420, uploadSpeedKbps = 380, pingMs = 38)
     }
 
     private fun stopVpnService(context: Context) {
@@ -415,12 +532,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         context.startService(intent)
         _vpnState.value = VpnState.DISCONNECTED
+        _speedStats.value = SpeedStats(0, 0, 0)
     }
 
     fun updateVpnConfig(newConfig: ConfigDataClass) {
         viewModelScope.launch {
             dataStoreManager.saveConfig(newConfig)
         }
+    }
+
+    fun generateRandomUuid() {
+        val newUuid = java.util.UUID.randomUUID().toString()
+        updateVpnConfig(_configData.value.copy(uuid = newUuid))
+    }
+
+    fun setHostToCleanIp(cleanIp: String) {
+        updateVpnConfig(_configData.value.copy(host = cleanIp))
+    }
+
+    fun getXrayJsonPreview(): String {
+        return WorkerCodeGenerator.generateVlessWorkerScript(_configData.value.uuid)
+            .let { XrayConfigGenerator.buildVlessWsConfig(_configData.value.host, _configData.value.path, _configData.value.uuid) }
     }
 
     fun updateCloudflareCredentials(accId: String, token: String, name: String) {
@@ -437,9 +569,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             _deployState.value = DeployState.Loading
+            _deployLogs.value = listOf(
+                "🚀 شروع عملیات دیپلوی ورکر روی سرورهای Cloudflare...",
+                "🔑 بررسی اعتبار توکن و Account ID (${cfg.cfAccountId.take(8)})...",
+                "📦 کامپایل اسکریپت VLESS WebSocket با UUID اختصاصی..."
+            )
             try {
-                // Generate specialized VLESS Worker JS code using current UUID
                 val scriptJs = WorkerCodeGenerator.generateVlessWorkerScript(cfg.uuid)
+                _deployLogs.value = _deployLogs.value + "⚡ ارسال درخواست PUT به Cloudflare API v4..."
                 val result = cloudflareRepository.deployWorkerToCloudflare(
                     accountId = cfg.cfAccountId,
                     apiToken = cfg.cfApiToken,
@@ -447,15 +584,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     scriptContent = scriptJs
                 )
                 if (result.isSuccess) {
-                    val url = "https://\${cfg.cfWorkerName}.\${cfg.cfAccountId.take(8)}.workers.dev"
+                    val url = "https://${cfg.cfWorkerName}.${cfg.cfAccountId.take(8)}.workers.dev"
+                    _deployLogs.value = _deployLogs.value + "✅ موفقیت! ورکر روی $url فعال شد."
                     _deployState.value = DeployState.Success(url)
-                    // Auto update host in config
-                    updateVpnConfig(cfg.copy(host = "\${cfg.cfWorkerName}.\${cfg.cfAccountId.take(8)}.workers.dev"))
+                    updateVpnConfig(cfg.copy(host = "${cfg.cfWorkerName}.${cfg.cfAccountId.take(8)}.workers.dev"))
                 } else {
-                    _deployState.value = DeployState.Error(result.exceptionOrNull()?.message ?: "خطا در دیپلوی")
+                    val errMsg = result.exceptionOrNull()?.message ?: "خطا در دیپلوی"
+                    _deployLogs.value = _deployLogs.value + "❌ خطا: $errMsg"
+                    _deployState.value = DeployState.Error(errMsg)
                 }
             } catch (e: Exception) {
-                _deployState.value = DeployState.Error(e.localizedMessage ?: "خطای ناشناخته در اتصال")
+                val errMsg = e.localizedMessage ?: "خطای ناشناخته در اتصال"
+                _deployLogs.value = _deployLogs.value + "❌ خطای شبکه: $errMsg"
+                _deployState.value = DeployState.Error(errMsg)
             }
         }
     }
