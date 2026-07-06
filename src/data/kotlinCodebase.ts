@@ -1111,15 +1111,16 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: 'gradle'
 
-    - name: Setup Gradle & Build Debug APK
-      uses: gradle/actions/setup-gradle@v3
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: 8.7
 
     - name: Build Debug APK
-      run: gradle assembleDebug --no-daemon
+      run: |
+        chmod +x ./gradlew 2>/dev/null || true
+        gradle assembleDebug --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
