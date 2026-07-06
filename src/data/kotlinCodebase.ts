@@ -1020,14 +1020,15 @@ dependencies {
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="CF Worker VPN"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.NoActionBar">
+        android:theme="@style/Theme.CFWorkerVPN">
 
         <activity
             android:name=".ui.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.CFWorkerVPN">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -1045,6 +1046,97 @@ dependencies {
 
     </application>
 </manifest>
+`
+  },
+  {
+    filename: 'strings.xml',
+    path: 'app/src/main/res/values/strings.xml',
+    category: 'gradle',
+    title: 'res/values/strings.xml',
+    description: 'رشته‌های استاندارد اندروید شامل نام برنامه.',
+    code: `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CF Worker VPN</string>
+</resources>
+`
+  },
+  {
+    filename: 'themes.xml',
+    path: 'app/src/main/res/values/themes.xml',
+    category: 'gradle',
+    title: 'res/values/themes.xml',
+    description: 'تعریف تم بدون اکشن‌بار (NoActionBar) سازگار با Jetpack Compose.',
+    code: `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CFWorkerVPN" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+</resources>
+`
+  },
+  {
+    filename: 'ic_launcher_background.xml',
+    path: 'app/src/main/res/drawable/ic_launcher_background.xml',
+    category: 'gradle',
+    title: 'res/drawable/ic_launcher_background.xml',
+    description: 'پس‌زمینه برداری (Vector) آیکون برنامه.',
+    code: `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M0,0h108v108h-108z"/>
+</vector>
+`
+  },
+  {
+    filename: 'ic_launcher_foreground.xml',
+    path: 'app/src/main/res/drawable/ic_launcher_foreground.xml',
+    category: 'gradle',
+    title: 'res/drawable/ic_launcher_foreground.xml',
+    description: 'طرح رویی آیکون برنامه (سپر محافظ VPN).',
+    code: `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M54,26 C38.5,26 26,38.5 26,54 C26,69.5 38.5,82 54,82 C69.5,82 82,69.5 82,54 C82,38.5 69.5,26 54,26 Z M54,74 C43,74 34,65 34,54 C34,43 43,34 54,34 C65,34 74,43 74,54 C74,65 65,74 54,74 Z"/>
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M54,42 L42,54 L50,54 L50,66 L58,66 L58,54 L66,54 Z"/>
+</vector>
+`
+  },
+  {
+    filename: 'ic_launcher.xml',
+    path: 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+    category: 'gradle',
+    title: 'res/mipmap-anydpi-v26/ic_launcher.xml',
+    description: 'تعریف Adaptive Icon برنامه برای اندروید ۸ به بالا.',
+    code: `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>
+`
+  },
+  {
+    filename: 'ic_launcher_round.xml',
+    path: 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+    category: 'gradle',
+    title: 'res/mipmap-anydpi-v26/ic_launcher_round.xml',
+    description: 'تعریف گرد Adaptive Icon برنامه.',
+    code: `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>
 `
   },
   {
