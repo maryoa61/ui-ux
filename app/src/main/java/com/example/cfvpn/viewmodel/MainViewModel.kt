@@ -21,6 +21,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
+ * وضعیت عملیات ذخیره‌سازی؛ برای اینکه UI بتونه واقعاً بفهمه ذخیره موفق بوده یا نه
+ * (و اگه نه، دقیقاً چرا نه)، به‌جای اینکه سایلنت هیچی نشون ندیم.
+ */
+sealed class SaveState {
+    object Idle : SaveState()
+    object Saving : SaveState()
+    object Success : SaveState()
+    data class Error(val message: String) : SaveState()
+}
+
+/**
  * ViewModel واحد برای هر دو صفحه (Home و Settings). state با StateFlow منتشر می‌شود
  * تا در Compose با collectAsStateWithLifecycle مصرف شود.
  */
@@ -33,9 +44,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _workerConfig = MutableStateFlow(WorkerConfig())
     val workerConfig: StateFlow<WorkerConfig> = _workerConfig.asStateFlow()
 
+    private val _workerSaveState = MutableStateFlow<SaveState>(SaveState.Idle)
+    val workerSaveState: StateFlow<SaveState> = _workerSaveState.asStateFlow()
+
     // ---------- Cloudflare credentials (accountId در state، token جدا و رمزنگاری‌شده) ----------
     private val _cloudflareCredentials = MutableStateFlow(CloudflareCredentials())
     val cloudflareCredentials: StateFlow<CloudflareCredentials> = _cloudflareCredentials.asStateFlow()
+
+    private val _credentialsSaveState = MutableStateFlow<SaveState>(SaveState.Idle)
+    val credentialsSaveState: StateFlow<SaveState> = _credentialsSaveState.asStateFlow()
 
     // ---------- Connection ----------
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
@@ -56,7 +73,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             settingsRepository.appConfigFlow.collect { appConfig ->
                 _workerConfig.value = appConfig.worker
                 _cloudflareCredentials.value = appConfig.cloudflare.copy(
-                    apiToken = settingsRepository.readApiTokenOrNull() ?: ""
+                    apiToken = try {
+                        settingsRepository.readApiTokenOrNull() ?: ""
+                    } catch (e: Exception) {
+                        // اگه فایل رمزنگاری‌شده خراب/ناسازگار باشه، حداقل کل صفحه کرش نکنه
+                        ""
+                    }
                 )
             }
         }
@@ -78,8 +100,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun persistWorkerConfig() {
         viewModelScope.launch {
-            settingsRepository.saveWorkerConfig(_workerConfig.value)
+            _workerSaveState.value = SaveState.Saving
+            try {
+                settingsRepository.saveWorkerConfig(_workerConfig.value)
+                _workerSaveState.value = SaveState.Success
+            } catch (e: Exception) {
+                _workerSaveState.value = SaveState.Error(
+                    "${e.javaClass.simpleName}: ${e.message ?: "پیام خطا موجود نیست"}"
+                )
+            }
         }
+    }
+
+    fun resetWorkerSaveState() {
+        _workerSaveState.value = SaveState.Idle
     }
 
     // ---------- Cloudflare credential actions ----------
@@ -95,11 +129,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun persistCloudflareCredentials() {
         val creds = _cloudflareCredentials.value
         viewModelScope.launch {
-            settingsRepository.saveCloudflareBasics(creds.accountId, creds.email)
-            if (creds.apiToken.isNotBlank()) {
-                settingsRepository.saveApiToken(creds.apiToken)
+            _credentialsSaveState.value = SaveState.Saving
+            try {
+                settingsRepository.saveCloudflareBasics(creds.accountId, creds.email)
+                if (creds.apiToken.isNotBlank()) {
+                    settingsRepository.saveApiToken(creds.apiToken)
+                }
+                _credentialsSaveState.value = SaveState.Success
+            } catch (e: Exception) {
+                _credentialsSaveState.value = SaveState.Error(
+                    "${e.javaClass.simpleName}: ${e.message ?: "پیام خطا موجود نیست"}"
+                )
             }
         }
+    }
+
+    fun resetCredentialsSaveState() {
+        _credentialsSaveState.value = SaveState.Idle
     }
 
     // ---------- VPN connect/disconnect ----------
