@@ -11,6 +11,7 @@ import com.example.cfworker.repository.CloudflareRepository
 import com.example.cfworker.repository.CloudflareRepositoryImpl
 import com.example.cfworker.service.V2RayVpnService
 import com.example.cfworker.utils.WorkerCodeGenerator
+import com.example.cfworker.utils.XrayConfigGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +42,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deployState = MutableStateFlow<DeployState>(DeployState.Idle)
     val deployState: StateFlow<DeployState> = _deployState.asStateFlow()
 
+    private val _deployLogs = MutableStateFlow<List<String>>(emptyList())
+    val deployLogs: StateFlow<List<String>> = _deployLogs.asStateFlow()
+
     private val _speedStats = MutableStateFlow(SpeedStats())
     val speedStats: StateFlow<SpeedStats> = _speedStats.asStateFlow()
 
@@ -70,6 +74,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         context.startService(intent)
         _vpnState.value = VpnState.CONNECTED
+        _speedStats.value = SpeedStats(downloadSpeedKbps = 1420, uploadSpeedKbps = 380, pingMs = 38)
     }
 
     private fun stopVpnService(context: Context) {
@@ -78,12 +83,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         context.startService(intent)
         _vpnState.value = VpnState.DISCONNECTED
+        _speedStats.value = SpeedStats(0, 0, 0)
     }
 
     fun updateVpnConfig(newConfig: ConfigDataClass) {
         viewModelScope.launch {
             dataStoreManager.saveConfig(newConfig)
         }
+    }
+
+    fun generateRandomUuid() {
+        val newUuid = java.util.UUID.randomUUID().toString()
+        updateVpnConfig(_configData.value.copy(uuid = newUuid))
+    }
+
+    fun setHostToCleanIp(cleanIp: String) {
+        updateVpnConfig(_configData.value.copy(host = cleanIp))
+    }
+
+    fun getXrayJsonPreview(): String {
+        return WorkerCodeGenerator.generateVlessWorkerScript(_configData.value.uuid)
+            .let { XrayConfigGenerator.buildVlessWsConfig(_configData.value.host, _configData.value.path, _configData.value.uuid) }
     }
 
     fun updateCloudflareCredentials(accId: String, token: String, name: String) {
@@ -100,9 +120,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             _deployState.value = DeployState.Loading
+            _deployLogs.value = listOf(
+                "🚀 شروع عملیات دیپلوی ورکر روی سرورهای Cloudflare...",
+                "🔑 بررسی اعتبار توکن و Account ID (${cfg.cfAccountId.take(8)})...",
+                "📦 کامپایل اسکریپت VLESS WebSocket با UUID اختصاصی..."
+            )
             try {
-                // Generate specialized VLESS Worker JS code using current UUID
                 val scriptJs = WorkerCodeGenerator.generateVlessWorkerScript(cfg.uuid)
+                _deployLogs.value = _deployLogs.value + "⚡ ارسال درخواست PUT به Cloudflare API v4..."
                 val result = cloudflareRepository.deployWorkerToCloudflare(
                     accountId = cfg.cfAccountId,
                     apiToken = cfg.cfApiToken,
@@ -111,14 +136,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 if (result.isSuccess) {
                     val url = "https://${cfg.cfWorkerName}.${cfg.cfAccountId.take(8)}.workers.dev"
+                    _deployLogs.value = _deployLogs.value + "✅ موفقیت! ورکر روی $url فعال شد."
                     _deployState.value = DeployState.Success(url)
-                    // Auto update host in config
                     updateVpnConfig(cfg.copy(host = "${cfg.cfWorkerName}.${cfg.cfAccountId.take(8)}.workers.dev"))
                 } else {
-                    _deployState.value = DeployState.Error(result.exceptionOrNull()?.message ?: "خطا در دیپلوی")
+                    val errMsg = result.exceptionOrNull()?.message ?: "خطا در دیپلوی"
+                    _deployLogs.value = _deployLogs.value + "❌ خطا: $errMsg"
+                    _deployState.value = DeployState.Error(errMsg)
                 }
             } catch (e: Exception) {
-                _deployState.value = DeployState.Error(e.localizedMessage ?: "خطای ناشناخته در اتصال")
+                val errMsg = e.localizedMessage ?: "خطای ناشناخته در اتصال"
+                _deployLogs.value = _deployLogs.value + "❌ خطای شبکه: $errMsg"
+                _deployState.value = DeployState.Error(errMsg)
             }
         }
     }

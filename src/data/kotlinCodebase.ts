@@ -571,7 +571,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _deployState.value = DeployState.Loading
             _deployLogs.value = listOf(
                 "🚀 شروع عملیات دیپلوی ورکر روی سرورهای Cloudflare...",
-                "🔑 بررسی اعتبار توکن و Account ID (${cfg.cfAccountId.take(8)})...",
+                "🔑 بررسی اعتبار توکن و Account ID (\${cfg.cfAccountId.take(8)})...",
                 "📦 کامپایل اسکریپت VLESS WebSocket با UUID اختصاصی..."
             )
             try {
@@ -584,10 +584,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     scriptContent = scriptJs
                 )
                 if (result.isSuccess) {
-                    val url = "https://${cfg.cfWorkerName}.${cfg.cfAccountId.take(8)}.workers.dev"
-                    _deployLogs.value = _deployLogs.value + "✅ موفقیت! ورکر روی $url فعال شد."
+                    val url = "https://\${cfg.cfWorkerName}.\${cfg.cfAccountId.take(8)}.workers.dev"
+                    _deployLogs.value = _deployLogs.value + "✅ موفقیت! ورکر روی \$url فعال شد."
                     _deployState.value = DeployState.Success(url)
-                    updateVpnConfig(cfg.copy(host = "${cfg.cfWorkerName}.${cfg.cfAccountId.take(8)}.workers.dev"))
+                    updateVpnConfig(cfg.copy(host = "\${cfg.cfWorkerName}.\${cfg.cfAccountId.take(8)}.workers.dev"))
                 } else {
                     val errMsg = result.exceptionOrNull()?.message ?: "خطا در دیپلوی"
                     _deployLogs.value = _deployLogs.value + "❌ خطا: $errMsg"

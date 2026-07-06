@@ -1,6 +1,6 @@
-# CFVPN - Android Jetpack Compose VLESS Client & Cloudflare Worker Deployer Studio
+# CFVPN - Android Jetpack Compose VLESS Client & Cloudflare Worker Deployer
 
-این پروژه یک پلتفرم کامل و استودیو توسعه برای اپلیکیشن نیتیو اندروید **CFVPN** است که با زبان **Kotlin**، رابط کاربری مدرن **Jetpack Compose (Material 3)** و معماری استاندارد **Clean Architecture** طراحی و با شبیه‌ساز وب تعاملی ادغام شده است.
+این پروژه یک اپلیکیشن پیشرفته و کاملا نیتیو اندروید است که با زبان **Kotlin**، رابط کاربری مدرن **Jetpack Compose (Material 3)** و معماری استاندارد **Clean Architecture** توسعه یافته است.
 
 ---
 
@@ -25,7 +25,28 @@
 
 ---
 
-## 🚀 قابلیت‌های کلیدی پلتفرم وب (Web Studio)
-- **شبیه‌ساز زنده (Live Simulator):** تست رفتار رابط کاربری اندروید، اتصال به VLESS و ارسال درخواست‌های دیپلوی کلودفلر.
-- **مرورگر سورس کد پروژه کاتلین:** مشاهده و بررسی کامل کدهای کاتلین، فایل‌های گریدل، مانیفست و منابع برداری آیکون‌ها.
-- **خروجی مستقیم پروژه اندروید استودیو (ZIP Exporter):** دانلود کامل پروژه اندروید استودیو به همراه تمامی تنظیمات بیلد آماده کامپایل و اجرای مستقیم روی دیوایس واقعی.
+## 📁 ساختار فایل‌های پروژه
+
+### 🛠 پیکربندی و بیلد (Gradle & CI/CD)
+- `build.gradle.kts`: اسکریپت بیلد ریشه پروژه
+- `settings.gradle.kts`: معرفی ماژول app و مخازن استاندارد گوگل
+- `gradle.properties`: تنظیمات کش و بهینه‌سازی JVM گریدل
+- `gradle/libs.versions.toml`: مدیریت متمرکز نسخه‌ها و کتابخانه‌ها (Version Catalog)
+- `app/build.gradle.kts`: وابستگی‌های کاتلین، Compose، Coroutines و OkHttp
+- `.github/workflows/android.yml`: بیلد خودکار APK در سرورهای گیت‌هاب
+
+### 💻 سورس کد کاتلین (Kotlin Source Code)
+- `app/src/main/java/com/example/cfworker/ui/MainActivity.kt`: رابط کاربری اصلی با Jetpack Compose
+- `app/src/main/java/com/example/cfworker/viewmodel/MainViewModel.kt`: مدیریت استیت اتصالات و دیپلوی
+- `app/src/main/java/com/example/cfworker/service/V2RayVpnService.kt`: مدیریت رابط TUN و هسته Xray-core
+- `app/src/main/java/com/example/cfworker/repository/CloudflareRepository.kt`: ارتباط با Cloudflare REST API v4
+- `app/src/main/java/com/example/cfworker/data/ConfigDataClass.kt`: مدل‌های داده سرور و کانفیگ VLESS
+- `app/src/main/java/com/example/cfworker/utils/XrayConfigGenerator.kt`: تولید فایل کانفیگ JSON برای هسته Xray
+
+---
+
+## 🚀 راهنمای ساخت و اجرا در Android Studio
+1. پروژه را در **Android Studio (Ladybug یا جدیدتر)** باز کنید.
+2. گریدل به طور خودکار وابستگی‌ها را سینک می‌کند.
+3. فایل باینری معماری پردازنده گوشی خود (مثلا `xray` برای arm64-v8a) را در پوشه `app/src/main/assets/` قرار دهید.
+4. روی دکمه **Run** کلیک کنید یا از منوی Build گزینه **Build APK** را انتخاب نمایید.
