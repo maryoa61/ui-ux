@@ -3,6 +3,7 @@ package com.example.cfvpn.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +16,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.cfvpn.data.DeployResult
 import com.example.cfvpn.viewmodel.MainViewModel
+import com.example.cfvpn.viewmodel.SaveState
+import kotlinx.coroutines.delay
 
 @Composable
 fun SettingsScreen(
@@ -22,11 +25,20 @@ fun SettingsScreen(
     viewModel: MainViewModel
 ) {
     val credentials by viewModel.cloudflareCredentials.collectAsState()
+    val credentialsSaveState by viewModel.credentialsSaveState.collectAsState()
     val deployInProgress by viewModel.deployInProgress.collectAsState()
     val deployResult by viewModel.deployResult.collectAsState()
 
     var tokenVisible by rememberSaveable { mutableStateOf(false) }
     var scriptName by rememberSaveable { mutableStateOf("cfvpn-proxy") }
+
+    // بعد از نمایش پیام موفقیت، بعد از چند ثانیه به حالت Idle برگرد
+    LaunchedEffect(credentialsSaveState) {
+        if (credentialsSaveState is SaveState.Success) {
+            delay(2500)
+            viewModel.resetCredentialsSaveState()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -61,9 +73,26 @@ fun SettingsScreen(
 
         Button(
             onClick = { viewModel.persistCloudflareCredentials() },
+            enabled = credentialsSaveState !is SaveState.Saving,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("ذخیره اطلاعات کلودفلر")
+            if (credentialsSaveState is SaveState.Saving) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            } else {
+                Text("ذخیره اطلاعات کلودفلر")
+            }
+        }
+
+        when (val state = credentialsSaveState) {
+            is SaveState.Success -> Text(
+                text = "اطلاعات با موفقیت ذخیره شد ✓",
+                color = MaterialTheme.colorScheme.primary
+            )
+            is SaveState.Error -> Text(
+                text = "خطا در ذخیره: ${state.message}",
+                color = MaterialTheme.colorScheme.error
+            )
+            else -> {}
         }
 
         Divider()
