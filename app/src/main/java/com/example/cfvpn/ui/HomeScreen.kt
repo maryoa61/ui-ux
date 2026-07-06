@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -13,6 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cfvpn.data.ConnectionState
 import com.example.cfvpn.viewmodel.MainViewModel
+import com.example.cfvpn.viewmodel.SaveState
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
@@ -23,6 +26,14 @@ fun HomeScreen(
     val workerConfig by viewModel.workerConfig.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val vpnStats by viewModel.vpnStats.collectAsState()
+    val workerSaveState by viewModel.workerSaveState.collectAsState()
+
+    LaunchedEffect(workerSaveState) {
+        if (workerSaveState is SaveState.Success) {
+            delay(2500)
+            viewModel.resetWorkerSaveState()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -62,7 +73,8 @@ fun HomeScreen(
             onHostChange = viewModel::updateWorkerHost,
             onPathChange = viewModel::updateWorkerPath,
             onUuidChange = viewModel::updateWorkerUuid,
-            onSave = viewModel::persistWorkerConfig
+            onSave = viewModel::persistWorkerConfig,
+            saveState = workerSaveState
         )
     }
 }
@@ -145,7 +157,8 @@ private fun WorkerConfigCard(
     onHostChange: (String) -> Unit,
     onPathChange: (String) -> Unit,
     onUuidChange: (String) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    saveState: SaveState
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -180,9 +193,28 @@ private fun WorkerConfigCard(
 
             Button(
                 onClick = onSave,
+                enabled = saveState !is SaveState.Saving,
                 modifier = Modifier.align(Alignment.End)
             ) {
-                Text("ذخیره")
+                if (saveState is SaveState.Saving) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                } else {
+                    Text("ذخیره")
+                }
+            }
+
+            when (saveState) {
+                is SaveState.Success -> Text(
+                    text = "ذخیره شد ✓",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                is SaveState.Error -> Text(
+                    text = "خطا در ذخیره: ${saveState.message}",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                else -> {}
             }
         }
     }
