@@ -1,5 +1,8 @@
 package com.example.cfvpn.data
 
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+
 /**
  * انتزاع ارتباط با Cloudflare API. هرگونه جزئیات HTTP باید پشت این اینترفیس پنهان بماند
  * تا ViewModel/UI هیچ وابستگی‌ای به کتابخانه‌ی شبکه نداشته باشند.
@@ -52,16 +55,14 @@ class CloudflareRepositoryImpl(
                 .setType(okhttp3.MultipartBody.FORM)
                 .addFormDataPart(
                     "metadata", null,
-                    okhttp3.RequestBody.create(
-                        "application/json".toMediaType(),
-                        """{"main_module":"$scriptName.js"}"""
+                    """{"main_module":"$scriptName.js"}""".toRequestBody(
+                        "application/json".toMediaType()
                     )
                 )
                 .addFormDataPart(
                     "$scriptName.js", "$scriptName.js",
-                    okhttp3.RequestBody.create(
-                        "application/javascript+module".toMediaType(),
-                        workerSourceCode
+                    workerSourceCode.toRequestBody(
+                        "application/javascript+module".toMediaType()
                     )
                 )
                 .build()
@@ -119,7 +120,4 @@ class CloudflareRepositoryImpl(
             emptyList()
         }
     }
-
-    private fun String.toMediaType() = okhttp3.MediaType.parse(this)
-        ?: okhttp3.MediaType.parse("text/plain")!!
 }
