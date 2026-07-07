@@ -29,23 +29,59 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
   const [deployLoading, setDeployLoading] = useState(false);
   const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [activeMetrics, setActiveMetrics] = useState<{ baseDown: number; baseUp: number; ping: number }>({ baseDown: 2400, baseUp: 650, ping: 45 });
   const [cleanIpList] = useState([
     { ip: '104.16.123.96', desc: 'کلودفلر CDN - لتنسی عالی برای ایران (همراه اول / ایرانسل)' },
     { ip: '172.64.155.189', desc: 'کلودفلر Enterprise - پایداری بالا (مخابرات)' },
     { ip: '104.17.148.22', desc: 'آی‌پی تمیز رندوم سرور فرانکفورت' },
   ]);
 
-  // Simulate network traffic when connected
+  // Monitor online/offline browser network status
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (connectionError?.includes('Offline')) {
+        setConnectionError(null);
+      }
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      if (vpnStatus === 'CONNECTED' || vpnStatus === 'CONNECTING') {
+        setVpnStatus('ERROR');
+        setConnectionError('❌ اتصال قطع شد: اینترنت دستگاه غیرفعال شد (Offline). برای برقراری تونل VLESS به اینترنت متصل شوید.');
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [vpnStatus, setVpnStatus, connectionError]);
+
+  // Simulate network traffic when connected based on real tested metrics
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (vpnStatus === 'CONNECTED') {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setVpnStatus('ERROR');
+        setConnectionError('❌ اتصال به اینترنت دستگاه شما قطع است (Offline)! تونل VLESS قطع شد.');
+        return;
+      }
       timer = setInterval(() => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setVpnStatus('ERROR');
+          setConnectionError('❌ اتصال به اینترنت دستگاه شما قطع است (Offline)! تونل VLESS قطع شد.');
+          return;
+        }
         setNetworkStats(prev => ({
-          downloadSpeedKbps: Math.floor(Math.random() * 4500) + 1200,
-          uploadSpeedKbps: Math.floor(Math.random() * 800) + 300,
-          pingMs: Math.floor(Math.random() * 35) + 42,
-          totalDownloadedMb: Number((prev.totalDownloadedMb + 0.45).toFixed(2)),
-          totalUploadedMb: Number((prev.totalUploadedMb + 0.08).toFixed(2)),
+          downloadSpeedKbps: Math.floor(activeMetrics.baseDown * (0.88 + Math.random() * 0.24)),
+          uploadSpeedKbps: Math.floor(activeMetrics.baseUp * (0.88 + Math.random() * 0.24)),
+          pingMs: activeMetrics.ping + Math.floor(Math.random() * 6 - 3),
+          totalDownloadedMb: Number((prev.totalDownloadedMb + activeMetrics.baseDown / 8000).toFixed(2)),
+          totalUploadedMb: Number((prev.totalUploadedMb + activeMetrics.baseUp / 8000).toFixed(2)),
         }));
       }, 1000);
     } else {
@@ -57,16 +93,63 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
       }));
     }
     return () => clearInterval(timer);
-  }, [vpnStatus, setNetworkStats]);
+  }, [vpnStatus, setNetworkStats, activeMetrics]);
 
-  const handleToggleVpn = () => {
+  const handleToggleVpn = async () => {
     if (vpnStatus === 'CONNECTED' || vpnStatus === 'CONNECTING') {
       setVpnStatus('DISCONNECTED');
-    } else {
-      setVpnStatus('CONNECTING');
-      setTimeout(() => {
-        setVpnStatus('CONNECTED');
-      }, 1400);
+      setConnectionError(null);
+      return;
+    }
+
+    // Real browser Offline check
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setVpnStatus('ERROR');
+      setConnectionError('❌ اتصال برقرار نشد: اتصال اینترنت دستگاه شما قطع است (Offline). لطفاً شبکه خود را روشن کرده و مجدد تلاش کنید.');
+      return;
+    }
+
+    if (!vpnConfig.host || vpnConfig.host.trim() === '') {
+      setVpnStatus('ERROR');
+      setConnectionError('❌ خطا: آدرس Host (سرور یا Clean IP) وارد نشده است.');
+      return;
+    }
+
+    setVpnStatus('CONNECTING');
+    setConnectionError(null);
+
+    try {
+      const res = await fetch('/api/vpn/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: vpnConfig.host,
+          path: vpnConfig.path,
+          uuid: vpnConfig.uuid,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setVpnStatus('ERROR');
+        setConnectionError(`❌ خطا در اتصال به ورکر: ${data.error || 'سرور پاسخ نمی‌دهد.'}`);
+        return;
+      }
+
+      setActiveMetrics({
+        baseDown: data.estimatedDownloadKbps || 2400,
+        baseUp: data.estimatedUploadKbps || 650,
+        ping: data.pingMs || 45,
+      });
+      setVpnStatus('CONNECTED');
+    } catch (err: any) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setConnectionError('❌ اتصال اینترنت دستگاه شما قطع شد (Offline).');
+      } else {
+        setConnectionError('❌ خطا در برقراری تونل: عدم دسترسی به سرور یا قطعی اینترنت.');
+      }
+      setVpnStatus('ERROR');
     }
   };
 
@@ -90,7 +173,167 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
 
     try {
       const workerScriptObj = KOTLIN_CODEBASE.find(f => f.filename === 'WorkerCodeGenerator.kt');
-      const sampleJsCode = `export default { async fetch(req) { return new Response("VLESS Proxy OK"); } };`;
+      const vlessWorkerScript = `// Cloudflare Worker VLESS over WebSocket Proxy
+// Generated automatically by CF Worker VPN Android Studio
+import { connect } from 'cloudflare:sockets';
+
+const userID = '${vpnConfig.uuid}';
+
+export default {
+  async fetch(request, env, ctx) {
+    try {
+      const upgradeHeader = request.headers.get('Upgrade');
+      if (!upgradeHeader || upgradeHeader !== 'websocket') {
+        const url = new URL(request.url);
+        return new Response(JSON.stringify({
+          status: "healthy",
+          service: "VLESS Proxy Engine",
+          uuid: userID.slice(0, 8) + "...",
+          timestamp: new Date().toISOString()
+        }), { 
+          status: 200, 
+          headers: { "Content-Type": "application/json" } 
+        });
+      }
+      
+      const webSocketPair = new WebSocketPair();
+      const [client, server] = Object.values(webSocketPair);
+      server.accept();
+
+      handleSession(server).catch(err => {
+        console.error('Session error:', err);
+      });
+
+      return new Response(null, {
+        status: 101,
+        webSocket: client,
+      });
+    } catch (err) {
+      return new Response(err.toString(), { status: 500 });
+    }
+  }
+};
+
+async function handleSession(webSocket) {
+  let isLteHeaderResolved = false;
+  let remoteSocket = null;
+
+  webSocket.addEventListener('message', async (event) => {
+    try {
+      const message = event.data;
+      if (isLteHeaderResolved) {
+        if (remoteSocket) {
+          const writer = remoteSocket.writable.getWriter();
+          await writer.write(new Uint8Array(message));
+          writer.releaseLock();
+        }
+        return;
+      }
+
+      // Parse VLESS Header
+      const view = new DataView(message);
+      if (message.byteLength < 24) return;
+
+      const version = view.getUint8(0);
+      // Validate UUID
+      const uuidBytes = new Uint8Array(message, 1, 16);
+      const uuidStr = [...uuidBytes].map((b, i) => {
+        let s = b.toString(16).padStart(2, '0');
+        if (i === 3 || i === 5 || i === 7 || i === 9) s += '-';
+        return s;
+      }).join('');
+
+      if (uuidStr !== userID) {
+        webSocket.close(1003, "Invalid User ID");
+        return;
+      }
+
+      const addonLen = view.getUint8(17);
+      let addressIndex = 18 + addonLen;
+      const addressType = view.getUint8(addressIndex);
+      
+      let address = "";
+      let addressLength = 0;
+      let portIndex = 0;
+
+      if (addressType === 1) { // IPv4
+        const ipBytes = new Uint8Array(message, addressIndex + 1, 4);
+        address = ipBytes.join('.');
+        portIndex = addressIndex + 5;
+      } else if (addressType === 2) { // Domain Name
+        addressLength = view.getUint8(addressIndex + 1);
+        const domainBytes = new Uint8Array(message, addressIndex + 2, addressLength);
+        address = new TextDecoder().decode(domainBytes);
+        portIndex = addressIndex + 2 + addressLength;
+      } else if (addressType === 3) { // IPv6
+        const ipBytes = new Uint8Array(message, addressIndex + 1, 16);
+        address = [...ipBytes].map(b => b.toString(16).padStart(2, '0')).join(':');
+        portIndex = addressIndex + 17;
+      } else {
+        webSocket.close(1003, "Unsupported Address Type");
+        return;
+      }
+
+      const port = view.getUint16(portIndex);
+      const rawClientData = message.slice(portIndex + 2);
+
+      // Connect to destination
+      remoteSocket = connect({ hostname: address, port: port });
+      isLteHeaderResolved = true;
+
+      // Send VLESS response header (version 0 + 0 addons)
+      const responseHeader = new Uint8Array([version, 0]);
+      webSocket.send(responseHeader);
+
+      // Write any remaining client data
+      if (rawClientData.byteLength > 0) {
+        const writer = remoteSocket.writable.getWriter();
+        await writer.write(new Uint8Array(rawClientData));
+        writer.releaseLock();
+      }
+
+      // Pipe remote to websocket
+      pipeRemoteToWebSocket(remoteSocket, webSocket);
+
+    } catch (e) {
+      if (webSocket.readyState === WebSocket.OPEN) {
+        webSocket.close(1011, e.message);
+      }
+    }
+  });
+
+  webSocket.addEventListener('close', () => {
+    try {
+      if (remoteSocket) remoteSocket.close();
+    } catch (e) {}
+  });
+
+  webSocket.addEventListener('error', () => {
+    try {
+      if (remoteSocket) remoteSocket.close();
+    } catch (e) {}
+  });
+}
+
+async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
+  try {
+    const reader = remoteSocket.readable.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (webSocket.readyState === WebSocket.OPEN) {
+        webSocket.send(value.buffer);
+      } else {
+        break;
+      }
+    }
+  } catch (e) {
+    if (webSocket.readyState === WebSocket.OPEN) {
+      webSocket.close();
+    }
+  }
+}
+`;
 
       const res = await fetch('/api/cloudflare/deploy', {
         method: 'POST',
@@ -99,7 +342,7 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
           accountId: cfConfig.accountId,
           apiToken: cfConfig.apiToken,
           workerName: cfConfig.workerName,
-          workerScript: sampleJsCode,
+          workerScript: vlessWorkerScript,
           simulationMode: cfConfig.simulationMode || !cfConfig.accountId,
         }),
       });
@@ -200,6 +443,20 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-5">
             {mobileTab === 'vpn' && (
               <>
+                {!isOnline && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 flex items-center gap-2.5 text-rose-300 text-xs font-medium">
+                    <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 animate-pulse" />
+                    <span>اتصال اینترنت دستگاه شما قطع است (Offline). برای تست اتصال VLESS اینترنت خود را روشن کنید.</span>
+                  </div>
+                )}
+
+                {connectionError && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-start gap-2.5 text-amber-200 text-xs font-medium">
+                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">{connectionError}</span>
+                  </div>
+                )}
+
                 {/* Big Connect Button */}
                 <div className="flex flex-col items-center justify-center py-6 relative">
                   {vpnStatus === 'CONNECTED' && (
@@ -215,21 +472,27 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
                         ? 'bg-indigo-600 shadow-[0_0_40px_rgba(79,70,229,0.4)] scale-105'
                         : vpnStatus === 'CONNECTING'
                         ? 'bg-gradient-to-tr from-amber-600 to-orange-500 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-spin-slow'
+                        : vpnStatus === 'ERROR'
+                        ? 'bg-rose-950/80 border-2 border-rose-500/50 shadow-xl'
                         : 'bg-[#161B22] border-2 border-slate-800 hover:border-indigo-500 shadow-xl'
                     }`}
                   >
-                    <Power className="w-14 h-14 text-white drop-shadow-md group-hover:scale-110 transition-transform" />
+                    <Power className={`w-14 h-14 drop-shadow-md group-hover:scale-110 transition-transform ${vpnStatus === 'ERROR' ? 'text-rose-400' : 'text-white'}`} />
                     <span className="font-bold text-sm tracking-wide text-white">
                       {vpnStatus === 'CONNECTED'
                         ? 'متصل به ورکر'
                         : vpnStatus === 'CONNECTING'
-                        ? 'در حال برقراری...'
+                        ? 'تست واقعی سرور...'
+                        : vpnStatus === 'ERROR'
+                        ? 'تلاش مجدد اتصال'
                         : 'اتصال VPN'}
                     </span>
                   </button>
                   <p className="mt-4 text-xs text-slate-400 font-medium">
                     {vpnStatus === 'CONNECTED'
                       ? `تونل Xray برقرار است (${vpnConfig.host})`
+                      : vpnStatus === 'ERROR'
+                      ? 'خطا در برقراری اتصال با سرور یا اینترنت'
                       : 'برای فعال‌سازی VpnService اندروید لمس کنید'}
                   </p>
                 </div>
