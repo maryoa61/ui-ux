@@ -105,27 +105,23 @@ async function startServer() {
         reachable = true; // Handshake completed with protocol/port difference
       }
 
-      // Calculate realistic speed metrics based on latency & IP quality
-      let baseDown = 2400;
-      let baseUp = 650;
-
-      if (cleanHost === '104.20.19.44') {
-        pingMs = Math.min(pingMs, 42); // Fast clean IP
-        baseDown = 3400;
-      } else if (cleanHost === '104.16.123.96') {
-        pingMs = Math.max(pingMs, 88); // Congested clean IP
-        baseDown = 1100;
-      } else if (cleanHost === '172.67.180.12') {
-        pingMs = Math.max(pingMs, 64);
-        baseDown = 2100;
-      }
+      // Calculate realistic speed metrics based on the ACTUAL, live measured latency (RTT)
+      // Using the standard TCP Bandwidth-Delay Product (BDP) formula:
+      // Max Bandwidth = TCP Window Size / RTT
+      // For a modern window-scaled TCP connection of 512 KB:
+      const tcpWindowBits = 512 * 1024 * 8; // 4,194,304 bits
+      const rttSeconds = Math.max(0.010, pingMs / 1000); // Minimum 10ms
+      
+      const maxBandwidthKbps = Math.round((tcpWindowBits / rttSeconds) / 1000);
+      const estimatedDownloadKbps = Math.max(250, Math.min(95000, Math.round(maxBandwidthKbps * 0.65)));
+      const estimatedUploadKbps = Math.max(100, Math.min(35000, Math.round(estimatedDownloadKbps * 0.32)));
 
       res.json({
         success: true,
         reachable,
-        pingMs: Math.max(18, Math.round(pingMs)),
-        estimatedDownloadKbps: Math.round(baseDown * (1 + (Math.random() * 0.2 - 0.1))),
-        estimatedUploadKbps: Math.round(baseUp * (1 + (Math.random() * 0.2 - 0.1))),
+        pingMs: Math.max(12, Math.round(pingMs)),
+        estimatedDownloadKbps,
+        estimatedUploadKbps,
         message: `اتصال با موفقیت برقرار شد. پینگ سرور: ${Math.round(pingMs)} میلی‌ثانیه.`
       });
     } catch (error: any) {

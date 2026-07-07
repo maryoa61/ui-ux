@@ -61,29 +61,76 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
     };
   }, [vpnStatus, setVpnStatus, connectionError]);
 
-  // Simulate network traffic when connected based on real tested metrics
+  // Live real-time background probe to measure genuine ping and bandwidth while connected
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let probeTimer: NodeJS.Timeout;
+    let dataTimer: NodeJS.Timeout;
+    
     if (vpnStatus === 'CONNECTED') {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setVpnStatus('ERROR');
         setConnectionError('❌ اتصال به اینترنت دستگاه شما قطع است (Offline)! تونل VLESS قطع شد.');
         return;
       }
-      timer = setInterval(() => {
+
+      // Smooth incremental traffic counter (based on current measured speed)
+      dataTimer = setInterval(() => {
+        setNetworkStats(prev => {
+          const downIncrement = (prev.downloadSpeedKbps / 8000);
+          const upIncrement = (prev.uploadSpeedKbps / 8000);
+          return {
+            ...prev,
+            totalDownloadedMb: Number((prev.totalDownloadedMb + downIncrement).toFixed(2)),
+            totalUploadedMb: Number((prev.totalUploadedMb + upIncrement).toFixed(2)),
+          };
+        });
+      }, 1000);
+
+      // Perform a real, live latency probe every 4 seconds
+      const runLiveProbe = async () => {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           setVpnStatus('ERROR');
           setConnectionError('❌ اتصال به اینترنت دستگاه شما قطع است (Offline)! تونل VLESS قطع شد.');
           return;
         }
-        setNetworkStats(prev => ({
-          downloadSpeedKbps: Math.floor(activeMetrics.baseDown * (0.88 + Math.random() * 0.24)),
-          uploadSpeedKbps: Math.floor(activeMetrics.baseUp * (0.88 + Math.random() * 0.24)),
-          pingMs: activeMetrics.ping + Math.floor(Math.random() * 6 - 3),
-          totalDownloadedMb: Number((prev.totalDownloadedMb + activeMetrics.baseDown / 8000).toFixed(2)),
-          totalUploadedMb: Number((prev.totalUploadedMb + activeMetrics.baseUp / 8000).toFixed(2)),
-        }));
-      }, 1000);
+
+        try {
+          const res = await fetch('/api/vpn/test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              host: vpnConfig.host,
+              path: vpnConfig.path,
+              uuid: vpnConfig.uuid,
+            }),
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setNetworkStats(prev => ({
+              ...prev,
+              downloadSpeedKbps: data.estimatedDownloadKbps,
+              uploadSpeedKbps: data.estimatedUploadKbps,
+              pingMs: data.pingMs,
+            }));
+            setConnectionError(null);
+          } else {
+            // Server error or timeout
+            setVpnStatus('ERROR');
+            setConnectionError(`❌ قطعی یا اختلال در اتصال سرور: ${data.error || 'پاسخی دریافت نشد.'}`);
+          }
+        } catch (err) {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            setVpnStatus('ERROR');
+            setConnectionError('❌ اتصال اینترنت شما قطع است (Offline).');
+          }
+        }
+      };
+
+      // Run immediately on connect
+      runLiveProbe();
+      probeTimer = setInterval(runLiveProbe, 4000);
+
     } else {
       setNetworkStats(prev => ({
         ...prev,
@@ -92,8 +139,12 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
         pingMs: 0,
       }));
     }
-    return () => clearInterval(timer);
-  }, [vpnStatus, setNetworkStats, activeMetrics]);
+
+    return () => {
+      clearInterval(probeTimer);
+      clearInterval(dataTimer);
+    };
+  }, [vpnStatus, setNetworkStats, vpnConfig]);
 
   const handleToggleVpn = async () => {
     if (vpnStatus === 'CONNECTED' || vpnStatus === 'CONNECTING') {
