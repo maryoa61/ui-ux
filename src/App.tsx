@@ -11,12 +11,12 @@ export default function App() {
   const [vpnStatus, setVpnStatus] = useState<VpnStatus>('DISCONNECTED');
   
   const [vpnConfig, setVpnConfig] = useState<VpnConfig>({
-    host: 'fast-vpn.cloudflare-edge.workers.dev',
-    path: '/vless',
-    uuid: 'd342d11e-d424-4583-b36e-524ab1f0afa4',
+    host: 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
+    path: '/proxyip=152.53.142.246',
+    uuid: 'ed18ef05-3c9e-497a-8ee2-27d02af39dfc',
     port: 443,
     tls: true,
-    cleanIp: '104.16.123.96',
+    cleanIp: '104.21.233.209',
   });
 
   const [cfConfig, setCfConfig] = useState<CloudflareConfig>({

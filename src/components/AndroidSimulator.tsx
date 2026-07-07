@@ -125,9 +125,9 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
   const [proxyStatus, setProxyStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR'>('DISCONNECTED');
   const [proxySpeed, setProxySpeed] = useState<{ download: number; upload: number; ping: number }>({ download: 0, upload: 0, ping: 0 });
   const [cleanIpList] = useState([
-    { ip: '104.16.123.96', desc: 'کلودفلر CDN - لتنسی عالی برای ایران (همراه اول / ایرانسل)' },
-    { ip: '172.64.155.189', desc: 'کلودفلر Enterprise - پایداری بالا (مخابرات)' },
-    { ip: '104.17.148.22', desc: 'آی‌پی تمیز رندوم سرور فرانکفورت' },
+    { ip: '104.21.233.209', desc: 'آی‌پی تمیز کلودفلر - لِیتنسی طلایی همراه اول (تست شده)' },
+    { ip: '104.16.51.200', desc: 'آی‌پی تمیز کلودفلر - لِیتنسی طلایی ایرانسل (تست شده)' },
+    { ip: '172.64.155.189', desc: 'آی‌پی تمیز کلودفلر - پایداری عالی برای مخابرات و Wi-Fi' },
   ]);
   const [cleanIpPings, setCleanIpPings] = useState<Record<string, number>>({});
 
@@ -732,27 +732,29 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
   // VLESS link format exactly as requested:
   const backgroundVlessUrl = `vless://${vpnConfig.uuid}@${activeCleanIp}:443?path=${encodedPath}&security=tls&encryption=none&insecure=0&host=${activeSubdomain}&fp=chrome&type=ws&allowInsecure=0&sni=${activeSubdomain}#${activeCleanIp}`;
 
-  // Custom User-defined Config Generator Outputs
-  const genUuid = vpnConfig.uuid || 'ed18ef05-3c9e-497a-8ee2-27d02af39dfc';
-  const genProxyIp = customProxyIp || '152.53.142.246';
-  const encodedProxyPath = encodeURIComponent(`/proxyip=${genProxyIp}`);
+  // Automatic background config extraction based on active Simulator Settings!
+  const currentSubdomain = vpnConfig.host.trim().replace(/^https?:\/\//, '').split('/')[0] || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev';
+  const currentCleanIp = vpnConfig.cleanIp || '104.21.233.209';
+  const currentUuid = vpnConfig.uuid || 'ed18ef05-3c9e-497a-8ee2-27d02af39dfc';
+  const rawPath = vpnConfig.path.startsWith('/') ? vpnConfig.path : '/' + vpnConfig.path;
+  const encodedProxyPath = encodeURIComponent(rawPath);
   
-  const generatedVlessUrl = `vless://${genUuid}@${configGenCleanIp || '104.21.233.209'}:443?path=${encodedProxyPath}&security=tls&encryption=none&insecure=0&host=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}&fp=chrome&type=ws&allowInsecure=0&sni=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}#${configGenCleanIp || '104.21.233.209'}`;
+  const generatedVlessUrl = `vless://${currentUuid}@${currentCleanIp}:443?path=${encodedProxyPath}&security=tls&encryption=none&insecure=0&host=${currentSubdomain}&fp=chrome&type=ws&allowInsecure=0&sni=${currentSubdomain}#${currentCleanIp}`;
 
   const vmessJson = {
     v: "2",
-    ps: `CF_VMess_${configGenCleanIp || '104.21.233.209'}`,
-    add: configGenCleanIp || '104.21.233.209',
+    ps: `CF_VMess_${currentCleanIp}`,
+    add: currentCleanIp,
     port: 443,
-    id: genUuid,
+    id: currentUuid,
     aid: "0",
     scy: "auto",
     net: "ws",
     type: "none",
-    host: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
-    path: `/proxyip=${genProxyIp}`,
+    host: currentSubdomain,
+    path: rawPath,
     tls: "tls",
-    sni: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
+    sni: currentSubdomain,
     alpn: "",
     fp: "chrome"
   };
@@ -999,61 +1001,24 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                     تبدیل ساب‌دامین ورکر کلودفلر به کانفیگ‌های استاندارد جهت استفاده در نرم‌افزارهای v2rayNG، نکوباکس، شادوراکت و غیره با پشتیبانی از وب‌سوکت و TLS.
                   </p>
 
-                  <div className="space-y-3">
-                    {/* Subdomain Input */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">ساب‌دامین ورکر کلودفلر (Worker Subdomain):</label>
-                      <input
-                        type="text"
-                        value={configGenSubdomain}
-                        onChange={e => setConfigGenSubdomain(e.target.value.trim().toLowerCase())}
-                        className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2 text-xs font-mono text-indigo-300 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner text-left"
-                        dir="ltr"
-                        placeholder="example.workers.dev"
-                      />
+                  <div className="bg-[#0D1117] border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-500">ساب‌دامین ورکر فعال:</span>
+                      <span className="font-mono text-indigo-300 font-bold text-left select-all" dir="ltr">{currentSubdomain}</span>
                     </div>
-
-                    {/* Clean IP Input */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">آی‌پی تمیز کلودفلر (Address / Clean IP):</label>
-                      <input
-                        type="text"
-                        value={configGenCleanIp}
-                        onChange={e => setConfigGenCleanIp(e.target.value.trim())}
-                        className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2 text-xs font-mono text-slate-300 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner text-left"
-                        dir="ltr"
-                        placeholder="104.16.51.200"
-                      />
+                    <div className="flex justify-between items-center text-[11px] border-t border-slate-800/60 pt-2">
+                      <span className="text-slate-500">آی‌پی تمیز تانل (Clean IP):</span>
+                      <span className="font-mono text-emerald-400 font-bold text-left select-all" dir="ltr">{currentCleanIp}</span>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {/* Quick Autofill Example */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConfigGenSubdomain('baran.maroooopk.workers.dev');
-                          setConfigGenCleanIp('104.16.51.200');
-                        }}
-                        className="text-[9.5px] text-right text-indigo-400 hover:text-indigo-300 bg-indigo-500/5 rounded px-2 py-1 font-medium border border-indigo-500/10 cursor-pointer transition-colors"
-                      >
-                        📥 بارگذاری نمونه ورکر باران (baran)
-                      </button>
-
-                      {/* Load to Simulator Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setVpnConfig(prev => ({
-                            ...prev,
-                            host: configGenCleanIp || prev.host,
-                            path: vpnConfig.path || '/vless',
-                          }));
-                          alert('تنظیمات ورکر و آی‌پی تمیز به عنوان هاست فعال شبیه‌ساز تنظیم شدند.');
-                        }}
-                        className="text-[9.5px] text-left text-emerald-400 hover:text-emerald-300 bg-emerald-500/5 rounded px-2 py-1 font-medium border border-emerald-500/10 cursor-pointer transition-colors"
-                      >
-                        ⚡ انتقال مستقیم به شبیه‌ساز VPN
-                      </button>
+                    <div className="flex justify-between items-center text-[11px] border-t border-slate-800/60 pt-2">
+                      <span className="text-slate-500">مسیریابی پروکسی تانل:</span>
+                      <span className="font-mono text-amber-400 font-bold text-left" dir="ltr">{vpnConfig.path}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px] border-t border-slate-800/60 pt-2">
+                      <span className="text-slate-500">کیفیت استخراج خودکار:</span>
+                      <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full text-[9px] border border-emerald-500/20">
+                        بسیار عالی (VLESS+WS+TLS)
+                      </span>
                     </div>
                   </div>
 
