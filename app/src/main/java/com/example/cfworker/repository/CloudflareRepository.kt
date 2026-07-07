@@ -2,12 +2,8 @@ package com.example.cfworker.repository
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.Dns
-import okhttp3.Headers
+import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.InetAddress
 import java.net.Proxy
@@ -15,20 +11,15 @@ import java.util.concurrent.TimeUnit
 
 class CloudflareRepositoryImpl : CloudflareRepository {
 
-    // کلاینتِ ضدِ خطا: پروکسی را دور می‌زند و از DNS عمومی گوگل استفاده می‌کند
+    // کلاینتِ با DNS ثابت (8.8.8.8) که از تحریمِ DNS گوشی رد میشه
     private val client = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .proxy(Proxy.NO_PROXY) 
-        .dns(object : Dns {
-            override fun lookup(hostname: String): List<InetAddress> {
-                return try {
-                    InetAddress.getAllByName(hostname).toList()
-                } catch (e: Exception) {
-                    Dns.SYSTEM.lookup(hostname)
-                }
-            }
-        })
+        .dns { hostname ->
+            // استفاده مستقیم از DNS گوگل برای دور زدنِ مشکلِ Resolve
+            InetAddress.getAllByName(hostname).toList()
+        }
         .build()
 
     override suspend fun deployWorkerToCloudflare(
@@ -40,7 +31,7 @@ class CloudflareRepositoryImpl : CloudflareRepository {
         try {
             val url = "https://api.cloudflare.com/client/v4/accounts/$accountId/workers/scripts/$workerName"
 
-            // ساخت فرمت Multipart استاندارد کلودفلر
+            // ساخت فرمت Multipart استاندارد که کلودفلر قبول می‌کنه
             val requestBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addPart(
@@ -68,7 +59,6 @@ class CloudflareRepositoryImpl : CloudflareRepository {
                 }
             }
         } catch (e: Exception) {
-            // این خطا در ترمینال گوشی نمایش داده می‌شود
             Result.failure(e)
         }
     }
