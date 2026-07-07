@@ -89,36 +89,9 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
   const [copiedText, setCopiedText] = useState<boolean>(false);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [extractionLog, setExtractionLog] = useState<string>('استخراج موفقیت‌آمیز!');
-
   const [configGenSubdomain, setConfigGenSubdomain] = useState<string>('nova-coral-core-2cf7.kayamavy-43e.workers.dev');
   const [configGenCleanIp, setConfigGenCleanIp] = useState<string>('104.21.233.209');
   const [configGenType, setConfigGenType] = useState<'vless' | 'vmess'>('vless');
-
-  const generatedVlessUrl = `vless://${vpnConfig.uuid}@${configGenCleanIp || '104.21.233.209'}:443?path=${encodeURIComponent(`/proxyip=${customProxyIp || '152.53.142.246'}`)}&security=tls&encryption=none&insecure=0&host=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}&fp=chrome&type=ws&allowInsecure=0&sni=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}#${configGenCleanIp || '104.21.233.209'}`;
-
-  const generatedVmessUrl = (() => {
-    try {
-      const vmessObj = {
-        v: "2",
-        ps: `CF_VMESS_${configGenCleanIp || '104.21.233.209'}`,
-        add: configGenCleanIp || '104.21.233.209',
-        port: "443",
-        id: vpnConfig.uuid,
-        aid: "0",
-        scy: "auto",
-        net: "ws",
-        type: "none",
-        host: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
-        path: `/proxyip=${customProxyIp || '152.53.142.246'}`,
-        tls: "tls",
-        sni: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
-        alpn: ""
-      };
-      return `vmess://${btoa(JSON.stringify(vmessObj))}`;
-    } catch (e) {
-      return '';
-    }
-  })();
 
   // Live background auto-extractor simulation
   useEffect(() => {
@@ -759,8 +732,41 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
   // VLESS link format exactly as requested:
   const backgroundVlessUrl = `vless://${vpnConfig.uuid}@${activeCleanIp}:443?path=${encodedPath}&security=tls&encryption=none&insecure=0&host=${activeSubdomain}&fp=chrome&type=ws&allowInsecure=0&sni=${activeSubdomain}#${activeCleanIp}`;
 
+  // Custom User-defined Config Generator Outputs
+  const genUuid = vpnConfig.uuid || 'ed18ef05-3c9e-497a-8ee2-27d02af39dfc';
+  const genProxyIp = customProxyIp || '152.53.142.246';
+  const encodedProxyPath = encodeURIComponent(`/proxyip=${genProxyIp}`);
+  
+  const generatedVlessUrl = `vless://${genUuid}@${configGenCleanIp || '104.21.233.209'}:443?path=${encodedProxyPath}&security=tls&encryption=none&insecure=0&host=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}&fp=chrome&type=ws&allowInsecure=0&sni=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}#${configGenCleanIp || '104.21.233.209'}`;
+
+  const vmessJson = {
+    v: "2",
+    ps: `CF_VMess_${configGenCleanIp || '104.21.233.209'}`,
+    add: configGenCleanIp || '104.21.233.209',
+    port: 443,
+    id: genUuid,
+    aid: "0",
+    scy: "auto",
+    net: "ws",
+    type: "none",
+    host: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
+    path: `/proxyip=${genProxyIp}`,
+    tls: "tls",
+    sni: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
+    alpn: "",
+    fp: "chrome"
+  };
+
+  let generatedVmessUrl = '';
+  try {
+    generatedVmessUrl = 'vmess://' + btoa(JSON.stringify(vmessJson));
+  } catch (e) {
+    generatedVmessUrl = 'vmess://' + JSON.stringify(vmessJson);
+  }
+
   const handleCopyGeneratedConfig = () => {
-    navigator.clipboard.writeText(backgroundVlessUrl);
+    const textToCopy = configGenType === 'vless' ? generatedVlessUrl : generatedVmessUrl;
+    navigator.clipboard.writeText(textToCopy);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2500);
   };
