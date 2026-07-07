@@ -84,10 +84,67 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
   }>>([]);
 
   // Config Generator state variables
-  const [configGenSubdomain, setConfigGenSubdomain] = useState<string>('baran.maroooopk.workers.dev');
-  const [configGenCleanIp, setConfigGenCleanIp] = useState<string>('104.16.51.200');
-  const [configGenType, setConfigGenType] = useState<'vless' | 'vmess'>('vless');
+  const [genOperator, setGenOperator] = useState<'mci' | 'irancell' | 'wifi'>('mci');
+  const [customProxyIp, setCustomProxyIp] = useState<string>('152.53.142.246');
   const [copiedText, setCopiedText] = useState<boolean>(false);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [extractionLog, setExtractionLog] = useState<string>('استخراج موفقیت‌آمیز!');
+
+  const [configGenSubdomain, setConfigGenSubdomain] = useState<string>('nova-coral-core-2cf7.kayamavy-43e.workers.dev');
+  const [configGenCleanIp, setConfigGenCleanIp] = useState<string>('104.21.233.209');
+  const [configGenType, setConfigGenType] = useState<'vless' | 'vmess'>('vless');
+
+  const generatedVlessUrl = `vless://${vpnConfig.uuid}@${configGenCleanIp || '104.21.233.209'}:443?path=${encodeURIComponent(`/proxyip=${customProxyIp || '152.53.142.246'}`)}&security=tls&encryption=none&insecure=0&host=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}&fp=chrome&type=ws&allowInsecure=0&sni=${configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev'}#${configGenCleanIp || '104.21.233.209'}`;
+
+  const generatedVmessUrl = (() => {
+    try {
+      const vmessObj = {
+        v: "2",
+        ps: `CF_VMESS_${configGenCleanIp || '104.21.233.209'}`,
+        add: configGenCleanIp || '104.21.233.209',
+        port: "443",
+        id: vpnConfig.uuid,
+        aid: "0",
+        scy: "auto",
+        net: "ws",
+        type: "none",
+        host: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
+        path: `/proxyip=${customProxyIp || '152.53.142.246'}`,
+        tls: "tls",
+        sni: configGenSubdomain || 'nova-coral-core-2cf7.kayamavy-43e.workers.dev',
+        alpn: ""
+      };
+      return `vmess://${btoa(JSON.stringify(vmessObj))}`;
+    } catch (e) {
+      return '';
+    }
+  })();
+
+  // Live background auto-extractor simulation
+  useEffect(() => {
+    if (!vpnConfig.host) return;
+    setIsExtracting(true);
+    setExtractionLog('اتصال به ساب‌دامین ورکر...');
+    
+    const t1 = setTimeout(() => {
+      setExtractionLog('استخراج کلیدها و پیکربندی WS/TLS...');
+    }, 400);
+    
+    const t2 = setTimeout(() => {
+      setExtractionLog('تنظیم تانل با آی‌پی تمیز اپراتور...');
+    }, 800);
+
+    const t3 = setTimeout(() => {
+      setIsExtracting(false);
+      setExtractionLog('استخراج موفقیت‌آمیز!');
+    }, 1200);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [vpnConfig.host, vpnConfig.uuid, genOperator, customProxyIp]);
 
   // Proxy Panel state variables
   const [proxyHost, setProxyHost] = useState<string>('');
@@ -643,7 +700,7 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
           settings: {
             vnext: [
               {
-                address: vpnConfig.host || 'worker.workers.dev',
+                address: vpnConfig.cleanIp || vpnConfig.host || '104.21.233.209',
                 port: 443,
                 users: [{ id: vpnConfig.uuid, encryption: 'none' }],
               },
@@ -652,8 +709,8 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
           streamSettings: {
             network: 'ws',
             security: 'tls',
-            tlsSettings: { serverName: vpnConfig.host },
-            wsSettings: { path: vpnConfig.path, headers: { Host: vpnConfig.host } },
+            tlsSettings: { serverName: vpnConfig.host || 'worker.workers.dev' },
+            wsSettings: { path: vpnConfig.path, headers: { Host: vpnConfig.host || 'worker.workers.dev' } },
           },
         },
       ],
@@ -662,37 +719,48 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
     2
   );
 
-  // Advanced Config Generator Strings (VLESS & VMess over WebSocket TLS)
-  const cleanSubdomain = configGenSubdomain.trim().replace(/^https?:\/\//, '').split('/')[0] || 'baran.maroooopk.workers.dev';
-  const cleanAddressIp = configGenCleanIp.trim() || '104.16.51.200';
+  // Advanced Config Generator (VLESS over WebSocket TLS)
+  // These are computed in the background based on the active worker subdomain & UUID
   
-  // VLESS link format: vless://uuid@clean_ip:443?encryption=none&security=tls&sni=subdomain&type=ws&host=subdomain&path=%2Fvless#CF-VLESS-Worker
-  const generatedVlessUrl = `vless://${vpnConfig.uuid}@${cleanAddressIp}:443?encryption=none&security=tls&sni=${cleanSubdomain}&type=ws&host=${cleanSubdomain}&path=%2Fvless#CF-VLESS-Worker`;
-  
-  // VMess JSON encoded to Base64
-  const vmessJsonObj = {
-    v: "2",
-    ps: "CF-VMess-Worker",
-    add: cleanAddressIp,
-    port: "443",
-    id: vpnConfig.uuid,
-    aid: "0",
-    scy: "auto",
-    net: "ws",
-    type: "none",
-    host: cleanSubdomain,
-    path: "/vless",
-    tls: "tls",
-    sni: cleanSubdomain,
-    alpn: ""
+  // Operators Configuration
+  const operatorsConfig = {
+    mci: {
+      id: 'mci',
+      name: 'MCI - همراه اول',
+      cleanIp: '104.21.233.209',
+      proxyIp: '152.53.142.246',
+      desc: 'بهینه‌سازی شده برای همراه اول با آی‌پی تمیز رنج اختصاصی و تانل بدون اختلال.',
+      label: 'MCI_CF_VLESS'
+    },
+    irancell: {
+      id: 'irancell',
+      name: 'Irancell - ایرانسل',
+      cleanIp: '104.16.51.200',
+      proxyIp: '103.86.122.100',
+      desc: 'پیکربندی شده برای ایرانسل با پایداری حداکثر، پینگ بسیار پایین و سرعت انتقال داده عالی.',
+      label: 'Irancell_CF_VLESS'
+    },
+    wifi: {
+      id: 'wifi',
+      name: 'Wi-Fi / ADSL - مخابرات و غیره',
+      cleanIp: '172.64.155.189',
+      proxyIp: '185.191.229.155',
+      desc: 'مناسب خطوط تلفن ثابت، مخابرات، شاتل و آسیاتک جهت اتصال ثابت و روان.',
+      label: 'WiFi_CF_VLESS'
+    }
   };
-  const generatedVmessUrl = typeof btoa !== 'undefined' 
-    ? `vmess://${btoa(JSON.stringify(vmessJsonObj))}`
-    : `vmess://[BASE64_ENCODED_JSON_CONFIG]`;
+
+  const activeOp = operatorsConfig[genOperator];
+  const activeSubdomain = vpnConfig.host.trim().replace(/^https?:\/\//, '').split('/')[0] || 'baran.maroooopk.workers.dev';
+  const activeCleanIp = activeOp.cleanIp;
+  const activeProxyIp = customProxyIp || activeOp.proxyIp;
+  const encodedPath = encodeURIComponent(`/proxyip=${activeProxyIp}`);
+  
+  // VLESS link format exactly as requested:
+  const backgroundVlessUrl = `vless://${vpnConfig.uuid}@${activeCleanIp}:443?path=${encodedPath}&security=tls&encryption=none&insecure=0&host=${activeSubdomain}&fp=chrome&type=ws&allowInsecure=0&sni=${activeSubdomain}#${activeCleanIp}`;
 
   const handleCopyGeneratedConfig = () => {
-    const textToCopy = configGenType === 'vless' ? generatedVlessUrl : generatedVmessUrl;
-    navigator.clipboard.writeText(textToCopy);
+    navigator.clipboard.writeText(backgroundVlessUrl);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2500);
   };
@@ -819,18 +887,31 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                   <div className="flex justify-between items-center">
                     <h3 className="font-bold text-xs text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider">
                       <Cpu className="w-4 h-4" />
-                      <span>تنظیمات سرور Cloudflare (Host / UUID)</span>
+                      <span>تنظیمات سرور Cloudflare (Host / UUID / Clean IP)</span>
                     </h3>
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-400 block mb-1.5 uppercase">Host (دامنه ورکر یا Clean IP کلودفلر):</label>
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1.5 uppercase">Host (ساب‌دامین ورکر کلودفلر):</label>
                     <input
                       type="text"
                       value={vpnConfig.host}
-                      onChange={e => setVpnConfig({ ...vpnConfig, host: e.target.value })}
-                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
+                      onChange={e => setVpnConfig({ ...vpnConfig, host: e.target.value.trim().toLowerCase() })}
+                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner text-left"
+                      dir="ltr"
                       placeholder="my-worker.workers.dev"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1.5 uppercase">آی‌پی تمیز فعال شبیه‌ساز (Clean IP):</label>
+                    <input
+                      type="text"
+                      value={vpnConfig.cleanIp || ''}
+                      onChange={e => setVpnConfig({ ...vpnConfig, cleanIp: e.target.value.trim() })}
+                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-indigo-300 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner text-left"
+                      dir="ltr"
+                      placeholder="104.21.233.209"
                     />
                   </div>
 
@@ -840,7 +921,8 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                       type="text"
                       value={vpnConfig.path}
                       onChange={e => setVpnConfig({ ...vpnConfig, path: e.target.value })}
-                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
+                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner text-left"
+                      dir="ltr"
                     />
                   </div>
 
@@ -849,7 +931,7 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                       <label className="text-[11px] font-bold text-slate-400 uppercase">شناسه UUID (VLESS User ID):</label>
                       <button
                         onClick={generateUuid}
-                        className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold"
+                        className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold cursor-pointer"
                       >
                         <RefreshCw className="w-3 h-3" />
                         <span>تولید تصادفی</span>
@@ -859,7 +941,8 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                       type="text"
                       value={vpnConfig.uuid}
                       onChange={e => setVpnConfig({ ...vpnConfig, uuid: e.target.value })}
-                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
+                      className="w-full bg-[#0D1117] border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner text-left"
+                      dir="ltr"
                     />
                   </div>
 
@@ -872,8 +955,8 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                         return (
                           <button
                             key={idx}
-                            onClick={() => setVpnConfig({ ...vpnConfig, host: item.ip })}
-                            className="text-right bg-[#0D1117] hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2.5 text-[11px] flex justify-between items-center transition-colors"
+                            onClick={() => setVpnConfig({ ...vpnConfig, cleanIp: item.ip })}
+                            className="text-right bg-[#0D1117] hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2.5 text-[11px] flex justify-between items-center transition-colors cursor-pointer"
                           >
                             <div className="flex flex-col text-right">
                               <span className="text-slate-300 font-medium">{item.desc}</span>
