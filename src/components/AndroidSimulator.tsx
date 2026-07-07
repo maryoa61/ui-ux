@@ -37,6 +37,41 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
     { ip: '172.64.155.189', desc: 'کلودفلر Enterprise - پایداری بالا (مخابرات)' },
     { ip: '104.17.148.22', desc: 'آی‌پی تمیز رندوم سرور فرانکفورت' },
   ]);
+  const [cleanIpPings, setCleanIpPings] = useState<Record<string, number>>({});
+
+  // Live ping testing for clean IPs in the React simulator!
+  useEffect(() => {
+    let active = true;
+    const testCleanIps = async () => {
+      const pings: Record<string, number> = {};
+      for (const item of cleanIpList) {
+        if (!active) return;
+        try {
+          const res = await fetch('/api/vpn/test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              host: item.ip,
+              path: vpnConfig.path,
+              uuid: vpnConfig.uuid,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success && active) {
+            pings[item.ip] = data.pingMs;
+            setCleanIpPings(prev => ({ ...prev, [item.ip]: data.pingMs }));
+          }
+        } catch (e) {}
+      }
+    };
+
+    testCleanIps();
+    const interval = setInterval(testCleanIps, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [cleanIpList, vpnConfig.path, vpnConfig.uuid]);
 
   // Monitor online/offline browser network status
   useEffect(() => {
@@ -631,16 +666,32 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                   <div className="pt-3 border-t border-slate-800">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">انتخاب سریع آی‌پی تمیز (Clean IP):</label>
                     <div className="flex flex-col gap-2">
-                      {cleanIpList.map((item, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setVpnConfig({ ...vpnConfig, host: item.ip })}
-                          className="text-right bg-[#0D1117] hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2.5 text-[11px] flex justify-between items-center transition-colors"
-                        >
-                          <span className="text-slate-300">{item.desc}</span>
-                          <span className="font-mono text-indigo-400 text-[10px] bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">{item.ip}</span>
-                        </button>
-                      ))}
+                      {cleanIpList.map((item, idx) => {
+                        const pingVal = cleanIpPings[item.ip];
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setVpnConfig({ ...vpnConfig, host: item.ip })}
+                            className="text-right bg-[#0D1117] hover:bg-slate-800/80 border border-slate-800 rounded-xl p-2.5 text-[11px] flex justify-between items-center transition-colors"
+                          >
+                            <div className="flex flex-col text-right">
+                              <span className="text-slate-300 font-medium">{item.desc}</span>
+                              <span className="font-mono text-slate-500 text-[10px] mt-0.5">{item.ip}</span>
+                            </div>
+                            <span className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                              pingVal 
+                                ? pingVal < 80 
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                  : pingVal < 150 
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              {pingVal ? `${pingVal} ms` : 'در حال تست...'}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

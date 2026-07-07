@@ -90,6 +90,7 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
     val deployState by viewModel.deployState.collectAsState()
     val deployLogs by viewModel.deployLogs.collectAsState()
     val speedStats by viewModel.speedStats.collectAsState()
+    val ipPings by viewModel.ipPings.collectAsState()
 
     Scaffold(
         topBar = {
@@ -148,6 +149,7 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
                         vpnState = vpnState,
                         configData = configData,
                         speedStats = speedStats,
+                        ipPings = ipPings,
                         onConnectClick = onConnectRequested,
                         onConfigChanged = { viewModel.updateVpnConfig(it) },
                         onRandomUuidClick = { viewModel.generateRandomUuid() },
@@ -174,6 +176,7 @@ fun VpnClientTab(
     vpnState: VpnState,
     configData: com.example.cfworker.data.ConfigDataClass,
     speedStats: com.example.cfworker.viewmodel.SpeedStats,
+    ipPings: Map<String, Long>,
     onConnectClick: () -> Unit,
     onConfigChanged: (com.example.cfworker.data.ConfigDataClass) -> Unit,
     onRandomUuidClick: () -> Unit,
@@ -285,7 +288,7 @@ fun VpnClientTab(
                 }
 
                 Divider(color = Color(0xFF1E293B))
-                Text("انتخاب سریع آی‌پی تمیز (Clean IP):", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                Text("انتخاب سریع آی‌پی تمیز (Clean IP) با لتنسی واقعی:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
 
                 val cleanIps = listOf(
                     "104.16.123.96" to "ایرانسل / همراه اول (پرترافیک)",
@@ -298,9 +301,22 @@ fun VpnClientTab(
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp)).clickable { onCleanIpSelect(ip) }
                     ) {
-                        Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(desc, color = Color.LightGray, fontSize = 12.sp)
-                            Text(ip, color = Color(0xFF818CF8), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column {
+                                Text(desc, color = Color.LightGray, fontSize = 12.sp)
+                                Text(ip, color = Color(0xFF818CF8), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            }
+                            val pingVal = ipPings[ip]
+                            if (pingVal != null) {
+                                Text(
+                                    text = "$pingVal ms",
+                                    color = if (pingVal < 80) Color(0xFF10B981) else if (pingVal < 150) Color(0xFFF59E0B) else Color(0xFFEF4444),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            } else {
+                                Text("تست...", color = Color.Gray, fontSize = 11.sp)
+                            }
                         }
                     }
                 }
@@ -500,12 +516,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _speedStats = MutableStateFlow(SpeedStats())
     val speedStats: StateFlow<SpeedStats> = _speedStats.asStateFlow()
 
+    private val _ipPings = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val ipPings: StateFlow<Map<String, Long>> = _ipPings.asStateFlow()
+
     private var speedTestJob: Job? = null
 
     init {
         viewModelScope.launch {
             dataStoreManager.configFlow.collect { config ->
                 _configData.value = config
+            }
+        }
+        startIpPinging()
+    }
+
+    private fun startIpPinging() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ips = listOf("104.16.123.96", "172.67.180.12", "104.20.19.44")
+            while (true) {
+                val updatedPings = mutableMapOf<String, Long>()
+                for (ip in ips) {
+                    try {
+                        val startTime = System.currentTimeMillis()
+                        val socket = java.net.Socket()
+                        socket.connect(java.net.InetSocketAddress(ip, 443), 1500)
+                        val rtt = System.currentTimeMillis() - startTime
+                        socket.close()
+                        updatedPings[ip] = rtt
+                    } catch (e: Exception) {
+                        // host unreachable
+                    }
+                }
+                _ipPings.value = updatedPings
+                delay(10000)
             }
         }
     }
@@ -544,6 +587,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val host = _configData.value.host
             while (_vpnState.value == VpnState.CONNECTED) {
                 try {
+                    val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                    val activeNet = cm?.activeNetworkInfo
+                    if (activeNet == null || !activeNet.isConnected) {
+                        _speedStats.value = SpeedStats(0, 0, 0)
+                        delay(2000)
+                        continue
+                    }
+
                     val startTime = System.currentTimeMillis()
                     val url = java.net.URL("https://$host/cdn-cgi/trace")
                     val conn = url.openConnection() as java.net.HttpURLConnection
@@ -564,7 +615,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         pingMs = rtt
                     )
                 } catch (e: Exception) {
-                    // Fallback to minimal if there is an error but still active
+                    _speedStats.value = SpeedStats(0, 0, 0)
                 }
                 delay(4000)
             }
@@ -707,7 +758,8 @@ class V2RayVpnService : VpnService() {
                 inputStream.close()
                 outputStream.close()
             } catch (e: Exception) {
-                Log.e(TAG, "Error copying xray binary: \${e.message}")
+                Log.e(TAG, "Error copying xray binary: \${e.message}. Attempting dynamic download fallback...")
+                downloadXrayBinary(xrayFile)
             }
         }
         
@@ -715,6 +767,53 @@ class V2RayVpnService : VpnService() {
         val executableSet = xrayFile.setExecutable(true, false)
         Log.i(TAG, "Xray binary executable set: \$executableSet")
         return xrayFile
+    }
+
+    private fun downloadXrayBinary(xrayFile: File) {
+        try {
+            Log.i(TAG, "Downloading xray binary dynamically from XTLS releases...")
+            val abis = android.os.Build.SUPPORTED_ABIS
+            val abi = if (abis.isNotEmpty()) abis[0] else "arm64-v8a"
+            val suffix = when {
+                abi.contains("arm64") -> "android-arm64-v8a"
+                abi.contains("v7") -> "android-armeabi-v7a"
+                abi.contains("x86_64") -> "android-x86_64"
+                else -> "android-arm64-v8a"
+            }
+            
+            val downloadUrl = "https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-\$suffix.zip"
+            Log.i(TAG, "Downloading from: \$downloadUrl")
+            
+            val url = java.net.URL(downloadUrl)
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+            conn.inputStream.use { input ->
+                val zipFile = File(filesDir, "xray.zip")
+                FileOutputStream(zipFile).use { output ->
+                    input.copyTo(output)
+                }
+                
+                // Extract xray from zip
+                java.util.zip.ZipInputStream(zipFile.inputStream()).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "xray") {
+                            FileOutputStream(xrayFile).use { fos ->
+                                zis.copyTo(fos)
+                            }
+                            break
+                        }
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                    }
+                }
+                zipFile.delete()
+                Log.i(TAG, "Xray binary downloaded and extracted successfully!")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to download xray binary dynamically: \${e.message}", e)
+        }
     }
 
     private fun startXrayCore(host: String, path: String, uuid: String) {
