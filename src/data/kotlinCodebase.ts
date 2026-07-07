@@ -584,40 +584,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun startSpeedTelemetry() {
         speedTestJob?.cancel()
         speedTestJob = viewModelScope.launch(Dispatchers.IO) {
-            val host = _configData.value.host
-            while (_vpnState.value == VpnState.CONNECTED) {
-                try {
-                    val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-                    val activeNet = cm?.activeNetworkInfo
-                    if (activeNet == null || !activeNet.isConnected) {
-                        _speedStats.value = SpeedStats(0, 0, 0)
-                        delay(2000)
-                        continue
-                    }
+            var lastRxBytes = android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid())
+            var lastTxBytes = android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid())
+            if (lastRxBytes == android.net.TrafficStats.UNSUPPORTED.toLong()) lastRxBytes = 0
+            if (lastTxBytes == android.net.TrafficStats.UNSUPPORTED.toLong()) lastTxBytes = 0
+            var lastTime = System.currentTimeMillis()
 
+            while (_vpnState.value == VpnState.CONNECTED) {
+                delay(3000)
+                val currentTime = System.currentTimeMillis()
+                val currentRxBytes = android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid())
+                val currentTxBytes = android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid())
+                
+                val rxDiff = if (currentRxBytes != android.net.TrafficStats.UNSUPPORTED.toLong() && currentRxBytes >= lastRxBytes) currentRxBytes - lastRxBytes else 0
+                val txDiff = if (currentTxBytes != android.net.TrafficStats.UNSUPPORTED.toLong() && currentTxBytes >= lastTxBytes) currentTxBytes - lastTxBytes else 0
+                val timeDiffSec = (currentTime - lastTime) / 1000.0
+                
+                lastRxBytes = currentRxBytes
+                lastTxBytes = currentTxBytes
+                lastTime = currentTime
+
+                // Convert bytes to Kilobytes/sec (KB/s) for display
+                val downSpeedKbs = if (timeDiffSec > 0) (rxDiff / 1024.0 / timeDiffSec).toLong() else 0
+                val upSpeedKbs = if (timeDiffSec > 0) (txDiff / 1024.0 / timeDiffSec).toLong() else 0
+                
+                // Measure real TCP Socket latency to the host
+                val rtt = try {
                     val startTime = System.currentTimeMillis()
-                    val url = java.net.URL("https://$host/cdn-cgi/trace")
-                    val conn = url.openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 3000
-                    conn.readTimeout = 3000
-                    conn.requestMethod = "GET"
-                    conn.inputStream.use { it.readBytes() }
-                    val rtt = System.currentTimeMillis() - startTime
-                    
-                    val rttSeconds = rtt.coerceAtLeast(10L) / 1000.0
-                    val maxBandwidthKbps = ((512 * 1024 * 8) / rttSeconds / 1000.0).toLong()
-                    val down = (maxBandwidthKbps * 0.65).toLong().coerceIn(250, 95000)
-                    val up = (down * 0.32).toLong().coerceIn(100, 35000)
-                    
-                    _speedStats.value = SpeedStats(
-                        downloadSpeedKbps = down,
-                        uploadSpeedKbps = up,
-                        pingMs = rtt
-                    )
+                    val socket = java.net.Socket()
+                    socket.connect(java.net.InetSocketAddress(_configData.value.host, 443), 2000)
+                    val rttVal = System.currentTimeMillis() - startTime
+                    socket.close()
+                    rttVal
                 } catch (e: Exception) {
-                    _speedStats.value = SpeedStats(0, 0, 0)
+                    0L
                 }
-                delay(4000)
+
+                _speedStats.value = SpeedStats(
+                    downloadSpeedKbps = downSpeedKbs, // We can store KB/s directly
+                    uploadSpeedKbps = upSpeedKbs,
+                    pingMs = rtt
+                )
             }
         }
     }
@@ -1029,6 +1036,13 @@ object XrayConfigGenerator {
               "sniffing": {
                 "enabled": true,
                 "destOverride": ["http", "tls"]
+              }
+            },
+            {
+              "port": 10809,
+              "protocol": "http",
+              "settings": {
+                "auth": "noauth"
               }
             }
           ],
