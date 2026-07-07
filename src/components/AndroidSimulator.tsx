@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { VpnStatus, VpnConfig, CloudflareConfig, NetworkStats } from '../types';
-import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal } from 'lucide-react';
+import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal, Search } from 'lucide-react';
 import { KOTLIN_CODEBASE } from '../data/kotlinCodebase';
 import { CFVpnLogo } from './CFVpnLogo';
 
@@ -25,19 +25,117 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
   networkStats,
   setNetworkStats,
 }) => {
-  const [mobileTab, setMobileTab] = useState<'vpn' | 'deploy' | 'json'>('vpn');
+  const [mobileTab, setMobileTab] = useState<'vpn' | 'deploy' | 'scanner'>('vpn');
   const [deployLoading, setDeployLoading] = useState(false);
   const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [activeMetrics, setActiveMetrics] = useState<{ baseDown: number; baseUp: number; ping: number }>({ baseDown: 2400, baseUp: 650, ping: 45 });
+
+  // IP Scanner state variables
+  const [scanProgress, setScanProgress] = useState<number>(0);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [scanStatus, setScanStatus] = useState<string>('');
+  const [scannedIps, setScannedIps] = useState<Array<{ ip: string; ping: number }>>([]);
+
+  // Proxy Panel state variables
+  const [proxyHost, setProxyHost] = useState<string>('');
+  const [proxyPort, setProxyPort] = useState<string>('10809');
+  const [proxyStatus, setProxyStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'ERROR'>('DISCONNECTED');
+  const [proxySpeed, setProxySpeed] = useState<{ download: number; upload: number; ping: number }>({ download: 0, upload: 0, ping: 0 });
   const [cleanIpList] = useState([
     { ip: '104.16.123.96', desc: 'کلودفلر CDN - لتنسی عالی برای ایران (همراه اول / ایرانسل)' },
     { ip: '172.64.155.189', desc: 'کلودفلر Enterprise - پایداری بالا (مخابرات)' },
     { ip: '104.17.148.22', desc: 'آی‌پی تمیز رندوم سرور فرانکفورت' },
   ]);
   const [cleanIpPings, setCleanIpPings] = useState<Record<string, number>>({});
+
+  // Simulated IP Scanner logic
+  const handleStartScan = () => {
+    if (isScanning) return;
+    setIsScanning(true);
+    setScanProgress(0);
+    setScannedIps([]);
+    setScanStatus('در حال اتصال به سرورهای توزیع‌شده کلودفلر...');
+
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 4;
+      if (progress > 100) progress = 100;
+      setScanProgress(progress);
+
+      if (progress === 12) {
+        setScanStatus('شناسایی رنج آی‌پی‌های لایه CDN کلودفلر...');
+      } else if (progress === 32) {
+        setScanStatus('شروع تست لتنسی و پینگ تک‌تک ساب‌نت‌ها...');
+      } else if (progress === 56) {
+        setScanStatus('بررسی ترافیک عبوری بدون استفاده از شبکه VPN...');
+        setScannedIps([
+          { ip: '104.16.123.96', ping: 42 }
+        ]);
+      } else if (progress === 76) {
+        setScanStatus('شناسایی اتصالات پایدار و آی‌پی تمیز واقعی...');
+        setScannedIps([
+          { ip: '104.16.123.96', ping: 42 },
+          { ip: '172.64.155.189', ping: 48 }
+        ]);
+      } else if (progress === 92) {
+        setScanStatus('مرتب‌سازی نتایج بر اساس کمترین لتنسی...');
+        setScannedIps([
+          { ip: '104.16.123.96', ping: 42 },
+          { ip: '172.64.155.189', ping: 48 },
+          { ip: '104.17.148.22', ping: 55 }
+        ]);
+      }
+
+      if (progress >= 100) {
+        clearInterval(interval);
+        setIsScanning(false);
+        setScanStatus('اسکن با موفقیت تکمیل شد. آی‌پی‌های تمیز واقعی آماده استفاده هستند.');
+      }
+    }, 120);
+  };
+
+  // Simulated Proxy connection logic
+  const handleToggleProxy = () => {
+    if (proxyStatus === 'CONNECTED' || proxyStatus === 'CONNECTING') {
+      setProxyStatus('DISCONNECTED');
+      setProxySpeed({ download: 0, upload: 0, ping: 0 });
+      return;
+    }
+
+    if (!proxyHost.trim()) {
+      alert('لطفاً آی‌پی یا هاست پروکسی را وارد کنید');
+      return;
+    }
+
+    setProxyStatus('CONNECTING');
+
+    setTimeout(() => {
+      setProxyStatus('CONNECTED');
+      setProxySpeed({
+        download: Math.floor(Math.random() * 800) + 200,
+        upload: Math.floor(Math.random() * 250) + 50,
+        ping: Math.floor(Math.random() * 30) + 40,
+      });
+    }, 1200);
+  };
+
+  // Live simulation of proxy stats
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (proxyStatus === 'CONNECTED') {
+      interval = setInterval(() => {
+        setProxySpeed({
+          download: Math.floor(Math.random() * 1200) + 300,
+          upload: Math.floor(Math.random() * 400) + 80,
+          ping: Math.floor(Math.random() * 20) + 35,
+        });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [proxyStatus]);
 
   // Live ping testing for clean IPs in the React simulator!
   useEffect(() => {
@@ -817,19 +915,160 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
               </div>
             )}
 
-            {mobileTab === 'json' && (
-              <div className="space-y-3">
-                <div className="bg-[#161B22] rounded-2xl p-5 border border-slate-800 shadow-inner">
-                  <h3 className="font-bold text-xs text-indigo-400 mb-2 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Terminal className="w-4 h-4" />
-                    <span>خروجی تولید شده Xray-core JSON</span>
+            {mobileTab === 'scanner' && (
+              <div className="space-y-4">
+                {/* IP Scanner Card */}
+                <div className="bg-[#161B22] rounded-2xl p-5 border border-slate-800 shadow-sm space-y-4">
+                  <h3 className="font-bold text-sm text-indigo-400 flex items-center gap-1.5">
+                    <Search className="w-5 h-5 text-indigo-400" />
+                    <span>اسکنر آی‌پی تمیز کلودفلر</span>
                   </h3>
-                  <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-                    این کانفیگ توسط کلاس <code className="text-indigo-300 font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">XrayConfigGenerator.kt</code> تولید شده و جهت راه‌اندازی باینری <code className="text-indigo-300 font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">xray</code> در اندروید استفاده می‌شود:
+                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                    یافتن آی‌پی‌های تمیز و بدون اختلال کلودفلر بدون نیاز به روشن بودن VPN
                   </p>
-                  <pre className="bg-[#0A0C10] p-3.5 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-400 overflow-x-auto text-left shadow-inner" dir="ltr">
-                    {generatedXrayJson}
-                  </pre>
+
+                  <button
+                    onClick={handleStartScan}
+                    disabled={isScanning}
+                    className={`w-full py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      isScanning
+                        ? 'bg-slate-800 text-slate-500 border border-slate-700'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/10'
+                    }`}
+                  >
+                    {isScanning ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                        <span>در حال اسکن... ({scanProgress}%)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 text-white" fill="currentColor" />
+                        <span>شروع اسکن آی‌پی</span>
+                      </>
+                    )}
+                  </button>
+
+                  {(isScanning || scanProgress > 0) && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-400 font-sans">{scanStatus}</span>
+                        <span className="text-indigo-400 font-bold">{scanProgress}%</span>
+                      </div>
+                      <div className="w-full bg-[#0D1117] h-2 rounded-full overflow-hidden border border-slate-800/50">
+                        <div
+                          className="bg-indigo-500 h-full rounded-full transition-all duration-300 shadow-md shadow-indigo-500/30"
+                          style={{ width: `${scanProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {scannedIps.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <h4 className="text-[11px] font-bold text-slate-300">آی‌پی‌های تمیز یافت شده:</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {scannedIps.map((item, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setProxyHost(item.ip);
+                              setVpnConfig(prev => ({ ...prev, host: item.ip }));
+                            }}
+                            className="bg-[#0D1117] p-3 rounded-xl border border-slate-800 flex justify-between items-center cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all group"
+                          >
+                            <div className="text-left">
+                              <span className="font-mono text-xs font-bold text-indigo-300 group-hover:text-indigo-200">{item.ip}</span>
+                              <span className="block text-[9px] text-slate-500 mt-0.5">کلیک جهت انتخاب به عنوان هاست</span>
+                            </div>
+                            <span className={`font-mono text-xs font-bold ${
+                              item.ping < 45 ? 'text-emerald-400' : 'text-amber-400'
+                            }`}>
+                              {item.ping} ms
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Proxy Connection Card */}
+                <div className="bg-[#161B22] rounded-2xl p-5 border border-slate-800 shadow-sm space-y-4">
+                  <h3 className="font-bold text-sm text-emerald-400 flex items-center gap-1.5">
+                    <Cpu className="w-5 h-5 text-emerald-400" />
+                    <span>تنظیمات و اتصال پروکسی دستی</span>
+                  </h3>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2 space-y-1.5">
+                      <label className="block text-[10px] text-slate-400">آی‌پی یا هاست پروکسی</label>
+                      <input
+                        type="text"
+                        value={proxyHost}
+                        onChange={(e) => setProxyHost(e.target.value)}
+                        placeholder="104.16.123.96"
+                        className="w-full bg-[#0D1117] border border-slate-800 text-slate-100 text-xs px-3.5 py-2.5 rounded-xl focus:border-emerald-500/50 outline-none text-left font-mono placeholder:text-slate-700"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] text-slate-400">پورت</label>
+                      <input
+                        type="text"
+                        value={proxyPort}
+                        onChange={(e) => setProxyPort(e.target.value)}
+                        placeholder="10809"
+                        className="w-full bg-[#0D1117] border border-slate-800 text-slate-100 text-xs px-3.5 py-2.5 rounded-xl focus:border-emerald-500/50 outline-none text-center font-mono placeholder:text-slate-700"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleToggleProxy}
+                    className={`w-full py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      proxyStatus === 'CONNECTED'
+                        ? 'bg-red-900/40 border border-red-500/30 hover:bg-red-900/60 text-red-200'
+                        : proxyStatus === 'CONNECTING'
+                        ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                    }`}
+                  >
+                    {proxyStatus === 'CONNECTING' ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                        <span>در حال اتصال...</span>
+                      </>
+                    ) : proxyStatus === 'CONNECTED' ? (
+                      <span>قطع اتصال پروکسی</span>
+                    ) : (
+                      <span>اتصال به پروکسی</span>
+                    )}
+                  </button>
+
+                  {proxyStatus === 'CONNECTED' && (
+                    <div className="grid grid-cols-3 gap-2 bg-[#0D1117] p-3 rounded-xl border border-slate-800/80 text-center">
+                      <div>
+                        <span className="block text-[9px] text-slate-500">دانلود</span>
+                        <span className="font-mono font-bold text-xs text-emerald-400 mt-1 block">
+                          {proxySpeed.download} KB/s
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-500">آپلود</span>
+                        <span className="font-mono font-bold text-xs text-indigo-400 mt-1 block">
+                          {proxySpeed.upload} KB/s
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-500">لتنسی RTT</span>
+                        <span className="font-mono font-bold text-xs text-amber-400 mt-1 block">
+                          {proxySpeed.ping} ms
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -858,13 +1097,13 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
             </button>
 
             <button
-              onClick={() => setMobileTab('json')}
+              onClick={() => setMobileTab('scanner')}
               className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all ${
-                mobileTab === 'json' ? 'text-indigo-400 bg-indigo-500/10 font-bold border border-indigo-500/20' : 'text-slate-500 hover:text-slate-300'
+                mobileTab === 'scanner' ? 'text-indigo-400 bg-indigo-500/10 font-bold border border-indigo-500/20' : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              <Terminal className="w-5 h-5" />
-              <span className="text-[11px] font-medium mt-1">کانفیگ JSON</span>
+              <Search className="w-5 h-5" />
+              <span className="text-[11px] font-medium mt-1">اسکنر آی‌پی</span>
             </button>
           </div>
         </div>
