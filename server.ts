@@ -211,6 +211,85 @@ async function startServer() {
     }
   });
 
+  // Fetch Deployed Cloudflare Worker Script
+  app.post("/api/cloudflare/get-script", async (req, res) => {
+    try {
+      const { accountId, apiToken, workerName, simulationMode } = req.body;
+
+      if (!workerName) {
+        return res.status(400).json({ error: "نام ورکر الزامی است." });
+      }
+
+      // If simulation mode or credentials missing, return a simulated version
+      if (simulationMode || !accountId || !apiToken) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        
+        const mockScript = `// Deployed Worker Script (Simulation Mode)
+// Matches your configuration for worker: ${workerName}
+// Compiled and fetched at: ${new Date().toISOString()}
+
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request))
+})
+
+async function handleRequest(request) {
+  const url = new URL(request.url);
+  return new Response(JSON.stringify({
+    status: "healthy",
+    service: "VLESS Proxy Engine (Simulated)",
+    uuid: "ed18ef05-3c9e-497a-8ee2-27d02af39dfc",
+    timestamp: new Date().toISOString()
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+}`;
+        return res.json({
+          success: true,
+          mode: "SIMULATION",
+          script: mockScript,
+          message: "کد ورکر شبیه‌سازی شده دریافت شد (برای تست واقعی، توکن API و آیدی حساب را وارد کنید)."
+        });
+      }
+
+      // Real fetch from Cloudflare REST API v4
+      const cfResponse = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}`,
+        {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${apiToken}`,
+          },
+        }
+      );
+
+      if (!cfResponse.ok) {
+        const errText = await cfResponse.text();
+        let cfErr = "خطا در دریافت کد ورکر از کلودفلر";
+        try {
+          const parsed = JSON.parse(errText);
+          cfErr = parsed.errors?.[0]?.message || cfErr;
+        } catch (e) {}
+        return res.status(cfResponse.status).json({
+          success: false,
+          error: cfErr,
+        });
+      }
+
+      const scriptText = await cfResponse.text();
+
+      res.json({
+        success: true,
+        mode: "LIVE",
+        script: scriptText,
+        message: "کد ورکر با موفقیت از سرور کلودفلر بارگذاری شد!"
+      });
+    } catch (error: any) {
+      console.error("Cloudflare Get Script Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Vite Middleware setup
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

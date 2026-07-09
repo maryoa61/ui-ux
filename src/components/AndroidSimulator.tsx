@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { VpnStatus, VpnConfig, CloudflareConfig, NetworkStats } from '../types';
-import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal, Search, Sliders, Settings, Activity, Wifi } from 'lucide-react';
+import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal, Search, Sliders, Settings, Activity, Wifi, Code, Eye } from 'lucide-react';
 import { KOTLIN_CODEBASE } from '../data/kotlinCodebase';
 import { CFVpnLogo } from './CFVpnLogo';
 
@@ -65,6 +65,9 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
   const [deployLoading, setDeployLoading] = useState(false);
   const [deployResult, setDeployResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
+  const [fetchScriptLoading, setFetchScriptLoading] = useState(false);
+  const [fetchedScript, setFetchedScript] = useState<string | null>(null);
+  const [fetchScriptResult, setFetchScriptResult] = useState<{ success: boolean; message: string; matches?: boolean } | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [activeMetrics, setActiveMetrics] = useState<{ baseDown: number; baseUp: number; ping: number }>({ baseDown: 2400, baseUp: 650, ping: 45 });
@@ -730,6 +733,57 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
     }
   };
 
+  const handleFetchScript = async () => {
+    if (!cfConfig.workerName) {
+      alert('لطفاً ابتدا نام ورکر را وارد کنید');
+      return;
+    }
+    setFetchScriptLoading(true);
+    setFetchedScript(null);
+    setFetchScriptResult(null);
+
+    try {
+      const res = await fetch('/api/cloudflare/get-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: cfConfig.accountId,
+          apiToken: cfConfig.apiToken,
+          workerName: cfConfig.workerName,
+          simulationMode: cfConfig.simulationMode || !cfConfig.accountId,
+        }),
+      });
+
+      const data = await res.json();
+      setFetchScriptLoading(false);
+
+      if (data.success) {
+        setFetchedScript(data.script);
+        
+        // Compare with current configuration UUID
+        const currentUuid = vpnConfig.uuid.trim();
+        const matches = data.script.includes(currentUuid);
+
+        setFetchScriptResult({
+          success: true,
+          message: data.message,
+          matches,
+        });
+      } else {
+        setFetchScriptResult({
+          success: false,
+          message: data.error || 'خطا در دریافت کد ورکر از کلودفلر',
+        });
+      }
+    } catch (e: any) {
+      setFetchScriptLoading(false);
+      setFetchScriptResult({
+        success: false,
+        message: e.message || 'خطای شبکه در دریافت اسکریپت',
+      });
+    }
+  };
+
   // Generate Xray config JSON preview
   const generatedXrayJson = JSON.stringify(
     {
@@ -1276,6 +1330,91 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                     </div>
                   </div>
                 )}
+
+                {/* Live Script Verification Section */}
+                <div className="bg-[#161B22] rounded-2xl p-5 border border-slate-800 space-y-4 shadow-xl">
+                  <h3 className="font-bold text-sm text-amber-400 flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-amber-400" />
+                    <span>تطبیق‌سنجی و تایید کد فعال کلودفلر</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans text-right">
+                    برای اطمینان از صحت و تطابق اسکریپت در حال اجرای کلودفلر با پیکربندی و UUID فعال این شبیه‌ساز، کدهای مستقر شده را مستقیماً از اکانت خود دریافت و بررسی کنید.
+                  </p>
+
+                  <button
+                    onClick={handleFetchScript}
+                    disabled={fetchScriptLoading}
+                    className="w-full bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-100 font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {fetchScriptLoading ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        <span>در حال دریافت کدهای زنده از کلودفلر...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Code className="w-3.5 h-3.5 text-amber-400" />
+                        <span>دریافت و تحلیل اسکریپت زنده</span>
+                      </>
+                    )}
+                  </button>
+
+                  {fetchScriptResult && (
+                    <div className="space-y-3.5 text-right">
+                      {/* Match Status Card */}
+                      <div
+                        className={`p-3.5 rounded-xl border flex items-start gap-3 text-xs ${
+                          fetchScriptResult.success
+                            ? fetchScriptResult.matches
+                              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                              : 'bg-amber-950/40 border-amber-500/30 text-amber-200'
+                            : 'bg-red-950/40 border-red-500/30 text-red-200'
+                        }`}
+                      >
+                        {fetchScriptResult.success ? (
+                          fetchScriptResult.matches ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          )
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                        )}
+                        <div className="space-y-1">
+                          <p className="font-bold text-[11px]">
+                            {fetchScriptResult.success 
+                              ? fetchScriptResult.matches
+                                ? '✅ تطابق کامل پیکربندی'
+                                : '⚠️ عدم تطابق پیکربندی'
+                              : '❌ خطای ارتباط با API'
+                            }
+                          </p>
+                          <p className="text-[11px] leading-relaxed">
+                            {fetchScriptResult.success
+                              ? fetchScriptResult.matches
+                                ? 'کد فعال روی کلودفلر کاملاً با شناسه UUID و ساختار این شبیه‌ساز مطابقت دارد و آماده استفاده است.'
+                                : 'اسکریپت روی کلودفلر مستقر است اما فاقد شناسه UUID شبیه‌ساز فعلی است! توصیه می‌شود مجدداً دکمه دیپلوی را بزنید.'
+                              : fetchScriptResult.message
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Display Fetched Script */}
+                      {fetchedScript && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                            <span className="font-mono text-slate-500">{cfConfig.workerName}.workers.dev</span>
+                            <span>پیش‌نمایش کد مستقر شده:</span>
+                          </div>
+                          <div className="bg-[#0A0C10] rounded-xl p-3 border border-slate-800 text-left font-mono text-[10px] text-slate-300 overflow-x-auto max-h-48 overflow-y-auto select-all leading-normal whitespace-pre">
+                            {fetchedScript}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
