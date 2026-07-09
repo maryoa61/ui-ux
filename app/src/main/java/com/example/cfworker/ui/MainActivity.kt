@@ -82,6 +82,12 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
     val deployLogs by viewModel.deployLogs.collectAsState()
     val speedStats by viewModel.speedStats.collectAsState()
 
+    // Scanner states
+    val isScanning by viewModel.isScanning.collectAsState()
+    val scanProgress by viewModel.scanProgress.collectAsState()
+    val scanStatus by viewModel.scanStatus.collectAsState()
+    val scannedIps by viewModel.scannedIps.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -121,6 +127,12 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
                 NavigationBarItem(
                     selected = selectedTabIndex == 2,
                     onClick = { selectedTabIndex = 2 },
+                    icon = { Icon(Icons.Default.Search, contentDescription = "Scanner") },
+                    label = { Text("اسکنر آی‌پی") }
+                )
+                NavigationBarItem(
+                    selected = selectedTabIndex == 3,
+                    onClick = { selectedTabIndex = 3 },
                     icon = { Icon(Icons.Default.Code, contentDescription = "JSON") },
                     label = { Text("کانفیگ JSON") }
                 )
@@ -153,7 +165,18 @@ fun MainScreen(viewModel: MainViewModel, onConnectRequested: () -> Unit) {
                         },
                         onDeployClick = { viewModel.deployWorkerToCloudflare() }
                     )
-                    2 -> JsonPreviewTab(jsonText = viewModel.getXrayJsonPreview())
+                    2 -> IpScannerTab(
+                        isScanning = isScanning,
+                        scanProgress = scanProgress,
+                        scanStatus = scanStatus,
+                        scannedIps = scannedIps,
+                        onStartScan = { op, port, depth, maxPing ->
+                            viewModel.startIpScanner(op, port, depth, maxPing)
+                        },
+                        onStopScan = { viewModel.stopIpScanner() },
+                        onSelectIp = { viewModel.setHostToCleanIp(it) }
+                    )
+                    3 -> JsonPreviewTab(jsonText = viewModel.getXrayJsonPreview())
                 }
             }
         }
@@ -425,6 +448,228 @@ fun JsonPreviewTab(jsonText: String) {
                     modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))
                 ) {
                     Text(jsonText, color = Color(0xFF34D399), fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.padding(12.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun IpScannerTab(
+    isScanning: Boolean,
+    scanProgress: Int,
+    scanStatus: String,
+    scannedIps: List<com.example.cfworker.viewmodel.ScannedIp>,
+    onStartScan: (operator: String, port: String, depth: String, maxPing: Int) -> Unit,
+    onStopScan: () -> Unit,
+    onSelectIp: (String) -> Unit
+) {
+    var operator by remember { mutableStateOf("all") }
+    var port by remember { mutableStateOf("443") }
+    var depth by remember { mutableStateOf("balanced") }
+    var maxPing by remember { mutableFloatStateOf(75f) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF6366F1))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("اسکنر آی‌پی تمیز کلودفلر", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF818CF8))
+                }
+                Text("الگوریتم هوشمند سنجش جیتر، دراپ پکت و پینگ کانال‌های وب‌سوکت برای کشف بهترین مسیرها بدون نیاز به روشن بودن فیلترشکن.", fontSize = 12.sp, color = Color.Gray)
+            }
+        }
+
+        // Settings and Filters
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("تنظیمات و بهینه‌سازی اسکنر", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+
+                // Operator Row with custom layout
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("اپراتور هدف:", fontSize = 12.sp, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("all" to "همه", "mci" to "همراه اول", "irancell" to "ایرانسل", "wifi_telecom" to "وای‌فای").forEach { (id, label) ->
+                            Button(
+                                onClick = { operator = id },
+                                enabled = !isScanning,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (operator == id) Color(0xFF6366F1) else Color(0xFF0D1117)
+                                ),
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(label, fontSize = 11.sp, color = if (operator == id) Color.White else Color.Gray)
+                            }
+                        }
+                    }
+                }
+
+                // Port Selection Row
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("پورت مقصد:", fontSize = 12.sp, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("443", "853", "2053", "2083").forEach { p ->
+                            Button(
+                                onClick = { port = p },
+                                enabled = !isScanning,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (port == p) Color(0xFF10B981) else Color(0xFF0D1117)
+                                ),
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(p, fontSize = 11.sp, color = if (port == p) Color.White else Color.Gray)
+                            }
+                        }
+                    }
+                }
+
+                // Scan Depth Selection Row
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("عمق و الگوریتم اسکنر:", fontSize = 12.sp, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("quick" to "⚡ سریع", "balanced" to "⚖️ متعادل", "deep" to "💎 عمیق").forEach { (d, label) ->
+                            Button(
+                                onClick = { depth = d },
+                                enabled = !isScanning,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (depth == d) Color(0xFF6366F1) else Color(0xFF0D1117)
+                                ),
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(label, fontSize = 11.sp, color = if (depth == d) Color.White else Color.Gray)
+                            }
+                        }
+                    }
+                }
+
+                // Max Latency Slider
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("حداکثر تاخیر مجاز:", fontSize = 12.sp, color = Color.Gray)
+                        Text("${maxPing.toInt()} ms", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6366F1))
+                    }
+                    Slider(
+                        value = maxPing,
+                        onValueChange = { maxPing = it },
+                        valueRange = 30f..120f,
+                        steps = 17,
+                        enabled = !isScanning,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF6366F1),
+                            activeTrackColor = Color(0xFF6366F1)
+                        )
+                    )
+                }
+            }
+        }
+
+        // Start Scanner Button
+        Button(
+            onClick = {
+                if (isScanning) onStopScan() else onStartScan(operator, port, depth, maxPing.toInt())
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isScanning) Color(0xFF7F1D1D) else Color(0xFF6366F1)
+            ),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            if (isScanning) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("توقف اسکن آی‌پی (${scanProgress}%)", fontWeight = FontWeight.Bold)
+            } else {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("شروع اسکن کلودفلر", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (isScanning || scanProgress > 0) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1117)),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(scanStatus, fontSize = 11.sp, color = Color.Gray)
+                        Text("$scanProgress%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6366F1))
+                    }
+                    LinearProgressIndicator(
+                        progress = { scanProgress / 100f },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = Color(0xFF6366F1),
+                        trackColor = Color(0xFF161B22)
+                    )
+                }
+            }
+        }
+
+        // Scanned IPs List
+        if (scannedIps.isNotEmpty()) {
+            Text("آی‌پی‌های تمیز یافت شده:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                scannedIps.forEach { item ->
+                    Surface(
+                        color = Color(0xFF161B22),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
+                            .clickable { onSelectIp(item.ip) }
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(item.ip, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            color = Color(0xFF6366F1).copy(alpha = 0.2f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(item.grade, color = Color(0xFFA5B4FC), fontSize = 9.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("اپراتور: ${item.provider}", fontSize = 11.sp, color = Color.Gray)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Surface(
+                                        color = Color(0xFF10B981).copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("${item.ping} ms", color = Color(0xFF34D399), fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                    }
+                                }
+                            }
+
+                            Divider(color = Color(0xFF1E293B))
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("جیتر: ${item.jitter} ms", fontSize = 10.sp, color = Color.Gray)
+                                Text("دراپ پکت: ${item.loss}%", fontSize = 10.sp, color = Color.Gray)
+                                Text("👈 انتخاب به عنوان هاست فعال", fontSize = 10.sp, color = Color(0xFF818CF8), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         }
