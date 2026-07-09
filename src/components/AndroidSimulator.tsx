@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { VpnStatus, VpnConfig, CloudflareConfig, NetworkStats } from '../types';
-import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal, Search } from 'lucide-react';
+import { Power, Shield, ArrowDown, ArrowUp, Zap, RefreshCw, CheckCircle2, AlertCircle, CloudUpload, Cpu, Play, Terminal, Search, Sliders, Settings, Activity, Wifi } from 'lucide-react';
 import { KOTLIN_CODEBASE } from '../data/kotlinCodebase';
 import { CFVpnLogo } from './CFVpnLogo';
 
@@ -82,6 +82,12 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
     status: 'عالی (بدون اختلال)' | 'خوب (پایدار)' | 'متوسط';
     grade: 'A+' | 'A' | 'B';
   }>>([]);
+  
+  // Advanced IP Scanner Customizations
+  const [scanOperator, setScanOperator] = useState<'all' | 'mci' | 'irancell' | 'wifi_telecom'>('all');
+  const [scanDepth, setScanDepth] = useState<'quick' | 'balanced' | 'deep'>('balanced');
+  const [maxAllowedPing, setMaxAllowedPing] = useState<number>(60);
+  const [scanPort, setScanPort] = useState<string>('443');
 
   // Config Generator state variables
   const [genOperator, setGenOperator] = useState<'mci' | 'irancell' | 'wifi'>('mci');
@@ -139,60 +145,122 @@ export const AndroidSimulator: React.FC<AndroidSimulatorProps> = ({
     setScannedIps([]);
     setScanStatus('در حال اتصال به سرورهای توزیع‌شده کلودفلر...');
 
+    // Master list of available high quality IPs with operators
+    const masterIpPool = [
+      { ip: '162.159.192.83', basePing: 25, baseJitter: 1.1, baseLoss: 0, provider: 'همراه اول / ایرانسل', operators: ['mci', 'irancell'] },
+      { ip: '162.159.136.12', basePing: 28, baseJitter: 0.9, baseLoss: 0, provider: 'ایرانسل (Bypassed)', operators: ['irancell'] },
+      { ip: '104.19.240.21', basePing: 32, baseJitter: 1.4, baseLoss: 0, provider: 'همراه اول / مخابرات', operators: ['mci', 'wifi_telecom'] },
+      { ip: '104.16.51.200', basePing: 34, baseJitter: 1.8, baseLoss: 0, provider: 'تمامی اپراتورها (Enterprise)', operators: ['mci', 'irancell', 'wifi_telecom'] },
+      { ip: '188.114.99.45', basePing: 36, baseJitter: 1.9, baseLoss: 0, provider: 'همراه اول (پایدار)', operators: ['mci'] },
+      { ip: '188.114.97.12', basePing: 38, baseJitter: 2.1, baseLoss: 0, provider: 'مخابرات / شاتل', operators: ['wifi_telecom'] },
+      { ip: '172.64.155.189', basePing: 41, baseJitter: 2.5, baseLoss: 0, provider: 'ایرانسل / رایتل', operators: ['irancell'] },
+      { ip: '104.22.7.102', basePing: 43, baseJitter: 2.3, baseLoss: 0, provider: 'مخابرات (باندل طلایی)', operators: ['wifi_telecom'] },
+      { ip: '172.67.14.88', basePing: 45, baseJitter: 3.1, baseLoss: 0, provider: 'پارس آنلاین / آسیاتک', operators: ['wifi_telecom'] },
+      { ip: '104.21.233.209', basePing: 23, baseJitter: 0.8, baseLoss: 0, provider: 'همراه اول (پیشنهادی)', operators: ['mci'] },
+      { ip: '104.26.12.143', basePing: 47, baseJitter: 3.2, baseLoss: 0, provider: 'شاتل موبایل', operators: ['mci', 'irancell'] },
+      { ip: '104.18.3.111', basePing: 50, baseJitter: 3.6, baseLoss: 0, provider: 'مخابرات خانگی', operators: ['wifi_telecom'] },
+      { ip: '162.159.200.1', basePing: 29, baseJitter: 1.0, baseLoss: 0, provider: 'رایتل و سایر اپراتورها', operators: ['irancell', 'wifi_telecom'] },
+    ];
+
+    // Determine speed step depending on the scanning depth
+    const progressStep = scanDepth === 'quick' ? 10 : 5;
+    const tickTime = scanDepth === 'quick' ? 80 : scanDepth === 'deep' ? 160 : 120;
+
     let progress = 0;
     const interval = setInterval(() => {
-      progress += 5;
+      progress += progressStep;
       if (progress > 100) progress = 100;
       setScanProgress(progress);
 
+      // Create filtered list at stages based on operator, depth and max latency threshold
+      const generateScannedList = (stageLimit: number) => {
+        // Filter by operator
+        let list = masterIpPool.filter(item => {
+          if (scanOperator === 'all') return true;
+          return item.operators.includes(scanOperator);
+        });
+
+        // Map and adjust metrics based on depth and port
+        let mapped = list.map(item => {
+          let pingAdjustment = 0;
+          let jitterAdjustment = 0;
+          let loss = 0;
+
+          if (scanDepth === 'quick') {
+            pingAdjustment = 10 + Math.floor(Math.random() * 6); // higher ping for draft scan
+            jitterAdjustment = 2.5;
+            loss = Math.random() > 0.85 ? 1 : 0; // occasional packet drop
+          } else if (scanDepth === 'deep') {
+            pingAdjustment = -3 + Math.floor(Math.random() * 3); // deeper bypass finds best routes
+            jitterAdjustment = -0.4;
+            loss = 0; // zero packet loss
+          } else {
+            pingAdjustment = Math.floor(Math.random() * 4);
+            jitterAdjustment = 0;
+            loss = 0;
+          }
+
+          // Port adjustments
+          if (scanPort !== '443') {
+            // Alternative ports have slightly different routing latencies
+            pingAdjustment += 4;
+          }
+
+          const finalPing = Math.max(14, Math.round(item.basePing + pingAdjustment));
+          const finalJitter = Math.max(0.4, Number((item.baseJitter + jitterAdjustment).toFixed(1)));
+
+          return {
+            ip: item.ip,
+            ping: finalPing,
+            jitter: finalJitter,
+            loss: loss,
+            provider: item.provider,
+            status: finalPing < 30 ? 'عالی (بدون اختلال)' as const : finalPing < 45 ? 'خوب (پایدار)' as const : 'متوسط' as const,
+            grade: finalPing < 30 ? 'A+' as const : finalPing < 45 ? 'A' as const : 'B' as const,
+          };
+        });
+
+        // Filter by user's max latency threshold
+        mapped = mapped.filter(item => item.ping <= maxAllowedPing);
+
+        // Sort by ping ascending
+        mapped.sort((a, b) => a.ping - b.ping);
+
+        // Slices elements based on current progress/stage to look realistic
+        const maxItemsForStage = Math.max(1, Math.round((mapped.length * stageLimit) / 100));
+        return mapped.slice(0, maxItemsForStage);
+      };
+
       if (progress === 10) {
-        setScanStatus('شناسایی هوشمند رنج آی‌پی‌های بدون فیلتر کلودفلر...');
+        setScanStatus(`شناسایی ساب‌نت‌های کلودفلر مناسب برای ${scanOperator === 'all' ? 'تمامی اپراتورها' : scanOperator === 'mci' ? 'همراه اول' : scanOperator === 'irancell' ? 'ایرانسل' : 'مخابرات و Wi-Fi'}...`);
       } else if (progress === 25) {
-        setScanStatus('شروع تست لتنسی، جیتر و درصد دراپ پکت ساب‌نت‌ها...');
+        setScanStatus(`ارسال پکت‌های آزمایشی پورت لایه شبکه (TCP Handshake) روی پورت ${scanPort}...`);
       } else if (progress === 45) {
-        setScanStatus('تست اتصال واقعی کانال وب‌سوکت روی پورت‌های TLS (۴۴۳)...');
-        setScannedIps([
-          { ip: '162.159.192.83', ping: 34, jitter: 2, loss: 0, provider: 'همراه اول / ایرانسل', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.16.51.200', ping: 38, jitter: 3, loss: 0, provider: 'تمامی اپراتورها (Enterprise)', status: 'عالی (بدون اختلال)', grade: 'A+' }
-        ]);
+        setScanStatus(`بررسی فایروال محلی، مقاومت هدر TLS SNI و دور زدن فعال فیلترینگ...`);
+        setScannedIps(generateScannedList(40));
       } else if (progress === 65) {
-        setScanStatus('بررسی سلامت پایداری اتصالات در ساعات اوج مصرف...');
-        setScannedIps([
-          { ip: '162.159.192.83', ping: 34, jitter: 2, loss: 0, provider: 'همراه اول / ایرانسل', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '162.159.136.12', ping: 35, jitter: 1, loss: 0, provider: 'ایرانسل (Bypassed)', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.19.240.21', ping: 36, jitter: 2, loss: 0, provider: 'همراه اول / مخابرات', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.16.51.200', ping: 38, jitter: 3, loss: 0, provider: 'تمامی اپراتورها (Enterprise)', status: 'عالی (بدون اختلال)', grade: 'A+' }
-        ]);
+        setScanStatus(`تست بارگذاری زنده سوکت وب‌سوکت (WS) و تحلیل دقیق Jitter لایه ۴...`);
+        setScannedIps(generateScannedList(70));
       } else if (progress === 85) {
-        setScanStatus('مرتب‌سازی نتایج و امتیازدهی نهایی به باکیفیت‌ترین آی‌پی‌ها...');
-        setScannedIps([
-          { ip: '162.159.192.83', ping: 34, jitter: 2, loss: 0, provider: 'همراه اول / ایرانسل', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '162.159.136.12', ping: 35, jitter: 1, loss: 0, provider: 'ایرانسل (Bypassed)', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.19.240.21', ping: 36, jitter: 2, loss: 0, provider: 'همراه اول / مخابرات', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.16.51.200', ping: 38, jitter: 3, loss: 0, provider: 'تمامی اپراتورها (Enterprise)', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '188.114.97.12', ping: 41, jitter: 4, loss: 0, provider: 'مخابرات / شاتل', status: 'خوب (پایدار)', grade: 'A' },
-          { ip: '188.114.99.45', ping: 42, jitter: 3, loss: 0, provider: 'همراه اول (پایدار)', status: 'خوب (پایدار)', grade: 'A' }
-        ]);
+        setScanStatus(`اعمال فیلتر حداکثر تاخیر مجاز (${maxAllowedPing}ms) و تحلیل دراپ پکت نهایی...`);
+        setScannedIps(generateScannedList(90));
       } else if (progress === 95) {
-        setScanStatus('اعتبارسنجی نهایی با سرور فرانکفورت...');
-        setScannedIps([
-          { ip: '162.159.192.83', ping: 34, jitter: 2, loss: 0, provider: 'همراه اول / ایرانسل', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '162.159.136.12', ping: 35, jitter: 1, loss: 0, provider: 'ایرانسل (Bypassed)', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.19.240.21', ping: 36, jitter: 2, loss: 0, provider: 'همراه اول / مخابرات', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '104.16.51.200', ping: 38, jitter: 3, loss: 0, provider: 'تمامی اپراتورها (Enterprise)', status: 'عالی (بدون اختلال)', grade: 'A+' },
-          { ip: '188.114.97.12', ping: 41, jitter: 4, loss: 0, provider: 'مخابرات / شاتل', status: 'خوب (پایدار)', grade: 'A' },
-          { ip: '188.114.99.45', ping: 42, jitter: 3, loss: 0, provider: 'همراه اول (پایدار)', status: 'خوب (پایدار)', grade: 'A' },
-          { ip: '172.64.155.189', ping: 45, jitter: 5, loss: 0, provider: 'ایرانسل / رایتل', status: 'خوب (پایدار)', grade: 'A' },
-          { ip: '104.22.7.102', ping: 48, jitter: 4, loss: 0, provider: 'مخابرات (باندل طلایی)', status: 'خوب (پایدار)', grade: 'A' }
-        ]);
+        setScanStatus('تایید نهایی اصالت آدرس‌ها با سرورهای مانیتورینگ فرانکفورت...');
+        setScannedIps(generateScannedList(100));
       }
 
       if (progress >= 100) {
         clearInterval(interval);
         setIsScanning(false);
-        setScanStatus('اسکن با موفقیت تکمیل شد. تمامی آی‌پی‌های فوق کاملاً تمیز و تایید شده‌اند.');
+        const finalResults = generateScannedList(100);
+        setScannedIps(finalResults);
+        if (finalResults.length === 0) {
+          setScanStatus(`اسکن پایان یافت. هیچ آی‌پی تمیزی با پینگ زیر ${maxAllowedPing} میلی‌ثانیه بر روی این اپراتور یافت نشد. لطفا حد تاخیر مجاز را افزایش داده یا حالت اسکن عمیق را انتخاب کنید.`);
+        } else {
+          setScanStatus(`اسکن موفقیت‌آمیز! ${finalResults.length} آی‌پی فوق‌العاده تمیز با پینگ زیر ${maxAllowedPing}ms و دراپ پکت ۰٪ یافت شد.`);
+        }
       }
-    }, 120);
+    }, tickTime);
   };
 
   // Simulated Proxy connection logic
@@ -1219,9 +1287,109 @@ async function pipeRemoteToWebSocket(remoteSocket, webSocket) {
                     <Search className="w-5 h-5 text-indigo-400" />
                     <span>اسکنر آی‌پی تمیز کلودفلر</span>
                   </h3>
-                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                    یافتن آی‌پی‌های تمیز و بدون اختلال کلودفلر بدون نیاز به روشن بودن VPN
+                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans text-right">
+                    الگوریتم هوشمند سنجش جیتر، دراپ پکت و پینگ کانال‌های وب‌سوکت برای کشف بهترین مسیرها بدون نیاز به روشن بودن فیلترشکن.
                   </p>
+
+                  {/* Advanced Scan Controls */}
+                  <div className="bg-[#0D1117] p-4 rounded-xl border border-slate-800 space-y-4 text-right">
+                    <div className="flex items-center gap-1.5 pb-2 border-b border-slate-800/80">
+                      <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="text-[11px] font-bold text-slate-300">تنظیمات و بهینه‌سازی اسکنر</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Operator Selection */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 block flex items-center gap-1 justify-end">
+                          <span>اپراتور هدف</span>
+                          <Wifi className="w-2.5 h-2.5 text-slate-400" />
+                        </label>
+                        <select
+                          value={scanOperator}
+                          onChange={e => setScanOperator(e.target.value as any)}
+                          disabled={isScanning}
+                          className="w-full bg-[#161B22] border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-indigo-500 font-sans cursor-pointer text-right"
+                        >
+                          <option value="all">همه اپراتورها</option>
+                          <option value="mci">همراه اول (MCI)</option>
+                          <option value="irancell">ایرانسل (MTN)</option>
+                          <option value="wifi_telecom">مخابرات و Wi-Fi</option>
+                        </select>
+                      </div>
+
+                      {/* Port Selection */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 block flex items-center gap-1 justify-end">
+                          <span>پورت مقصد</span>
+                          <Settings className="w-2.5 h-2.5 text-slate-400" />
+                        </label>
+                        <select
+                          value={scanPort}
+                          onChange={e => setScanPort(e.target.value)}
+                          disabled={isScanning}
+                          className="w-full bg-[#161B22] border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-indigo-500 font-mono cursor-pointer text-right"
+                        >
+                          <option value="443">443 (Standard TLS)</option>
+                          <option value="853">853 (DNS over TLS)</option>
+                          <option value="2053">2053 (Alt Cloudflare)</option>
+                          <option value="2083">2083 (Alt WebSockets)</option>
+                        </select>
+                      </div>
+
+                      {/* Scan Depth Selection */}
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="text-[10px] font-bold text-slate-400 block flex items-center gap-1 justify-end">
+                          <span>عمق و الگوریتم اسکنر</span>
+                          <Activity className="w-2.5 h-2.5 text-indigo-400" />
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(['quick', 'balanced', 'deep'] as const).map(d => (
+                            <button
+                              key={d}
+                              type="button"
+                              disabled={isScanning}
+                              onClick={() => setScanDepth(d)}
+                              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all border ${
+                                scanDepth === d
+                                  ? d === 'deep'
+                                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                                    : d === 'balanced'
+                                    ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400'
+                                    : 'bg-slate-500/10 border-slate-500/40 text-slate-400'
+                                  : 'bg-[#161B22] border-slate-800 text-slate-500 hover:text-slate-400'
+                              }`}
+                            >
+                              {d === 'quick' ? '⚡ سریع' : d === 'balanced' ? '⚖️ متعادل' : '💎 هوشمند عمیق'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Max Latency Range Slider */}
+                      <div className="space-y-1.5 col-span-2 pt-1">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                          <span className="font-mono text-indigo-400">{maxAllowedPing} ms</span>
+                          <span>حداکثر تاخیر مجاز (Latency Threshold)</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="30"
+                          max="120"
+                          step="5"
+                          value={maxAllowedPing}
+                          onChange={e => setMaxAllowedPing(Number(e.target.value))}
+                          disabled={isScanning}
+                          className="w-full accent-indigo-500 bg-[#161B22] h-1.5 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[8px] text-slate-500">
+                          <span dir="ltr">120 ms</span>
+                          <span dir="ltr">75 ms</span>
+                          <span dir="ltr">30 ms</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   <button
                     onClick={handleStartScan}
