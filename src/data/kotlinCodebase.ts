@@ -1137,12 +1137,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 data class ConfigDataClass(
-    val host: String = "my-vpn-worker.workers.dev",
+    val host: String = "ورکر-شما.workers.dev",
     val path: String = "/vless",
-    val uuid: String = "d342d11e-d424-4583-b36e-524ab1f0afa4",
-    val cfAccountId: String = "",
-    val cfApiToken: String = "",
-    val cfWorkerName: String = "cf-vpn-worker"
+    val uuid: String = "UUID-اختصاصی-شما",
+    val cfAccountId: String = "آیدی-حساب-کلودفلر-شما",
+    val cfApiToken: String = "توکن-کلودفلر-شما",
+    val cfWorkerName: String = "نام-ورکر-شما"
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "cf_vpn_prefs")
@@ -1160,12 +1160,12 @@ class DataStoreManager(private val context: Context) {
 
     val configFlow: Flow<ConfigDataClass> = context.dataStore.data.map { preferences ->
         ConfigDataClass(
-            host = preferences[KEY_HOST] ?: "my-vpn-worker.workers.dev",
+            host = preferences[KEY_HOST] ?: "ورکر-شما.workers.dev",
             path = preferences[KEY_PATH] ?: "/vless",
-            uuid = preferences[KEY_UUID] ?: "d342d11e-d424-4583-b36e-524ab1f0afa4",
-            cfAccountId = preferences[KEY_CF_ACCOUNT] ?: "",
-            cfApiToken = preferences[KEY_CF_TOKEN] ?: "",
-            cfWorkerName = preferences[KEY_CF_WORKER] ?: "cf-vpn-worker"
+            uuid = preferences[KEY_UUID] ?: "UUID-اختصاصی-شما",
+            cfAccountId = preferences[KEY_CF_ACCOUNT] ?: "آیدی-حساب-کلودفلر-شما",
+            cfApiToken = preferences[KEY_CF_TOKEN] ?: "توکن-کلودفلر-شما",
+            cfWorkerName = preferences[KEY_CF_WORKER] ?: "نام-ورکر-شما"
         )
     }
 
